@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>السلة الذكية | تسوق من الصين</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><img class="brand-logo" src="logo.jpeg" alt="شعار السلة الذكية"><div><b>السلة الذكية</b><small>من الصين إلى ليبيا</small></div></div>
+  <nav><a href="#home">الرئيسية</a><a href="#how">كيف تعمل؟</a><a href="#orders">طلباتي</a><a href="#adminPanel">الإدارة</a></nav>
+  <div class="head-actions"><button class="account-btn" onclick="openAuth()">👤 تسجيل الدخول</button><button class="cart-btn" onclick="openCart()">🛒 السلة <span id="cartCount">0</span></button></div>
+</header>
+
+<main id="home">
+<section class="hero">
+  <div class="hero-copy">
+    <span class="pill">1688 • Taobao • Pinduoduo</span>
+    <h1>ابحث في الصين كلها<br><em>من مكان واحد</em></h1>
+    <p>اكتب اسم المنتج أو الصق رابط المنتج، وشوف السعر باليوان والدينار الليبي قبل ما تطلب.</p>
+    <div class="searchbox">
+      <input id="searchInput" placeholder="مثال: BMW F10 LED Headlight" onkeydown="if(event.key==='Enter')searchProducts()">
+      <button onclick="searchProducts()">بحث 🔎</button>
+    </div>
+    <div class="sources">
+      <label><input type="checkbox" checked value="1688"> 1688</label>
+      <label><input type="checkbox" checked value="Taobao"> Taobao</label>
+      <label><input type="checkbox" checked value="Pinduoduo"> Pinduoduo</label>
+    </div>
+  </div>
+  <div class="hero-card">
+    <div class="mini-top">سعر اليوان المعتمد</div>
+    <strong>¥1 = <span id="rateHero">0.82</span> د.ل</strong>
+    <small>يتغير من لوحة تحكم الشركة</small>
+    <div class="stat"><b>3</b><span>منصات</span></div>
+    <div class="stat"><b>1</b><span>سلة</span></div>
+  </div>
+</section>
+
+<section class="section" id="results">
+  <div class="section-head">
+    <div><span class="eyebrow">نتائج البحث</span><h2 id="resultTitle">منتجات مقترحة</h2></div>
+    <select id="sort" onchange="renderProducts()"><option value="best">الأفضل</option><option value="price">الأقل سعراً</option></select>
+  </div>
+  <div id="productGrid" class="grid"></div>
+</section>
+
+<section class="how" id="how">
+  <div><span class="eyebrow">بسيطة للزبون</span><h2>من البحث إلى الطلب في دقائق</h2></div>
+  <div class="steps">
+    <article><b>01</b><h3>ابحث</h3><p>اكتب المنتج أو الصق رابط من أي منصة صينية.</p></article>
+    <article><b>02</b><h3>قارن</h3><p>قارن السعر والمصدر وشوف القيمة بالدينار الليبي.</p></article>
+    <article><b>03</b><h3>اطلب</h3><p>أضف للسلة وأرسل طلب الشراء للسلة الذكية.</p></article>
+  </div>
+</section>
+
+<section class="orders" id="orders">
+  <div class="order-box">
+    <span class="eyebrow">لزبائنك</span><h2>عندك رقم طلب؟</h2>
+    <p>اكتب رقم الطلب لمتابعة حالته.</p>
+    <div class="track"><input placeholder="مثال: SB-10342"><button onclick="trackOrder()">متابعة</button></div>
+    <div id="trackResult"></div>
+  </div>
+</section>
+</main>
+
+
+
+<section class="admin-panel" id="adminPanel">
+  <div class="admin-title">
+    <div><span class="eyebrow">SMART BASKET ADMIN</span><h2>لوحة تحكم الشركة</h2><p>تحكم في الأسعار والعمولات والشحن من مكان واحد.</p></div>
+    <span class="admin-status">● النظام يعمل</span>
+  </div>
+
+  <div class="admin-grid">
+    <article class="admin-card">
+      <div class="card-title"><span>💴</span><div><b>سعر اليوان</b><small>السعر المعتمد للعملاء</small></div></div>
+      <div class="admin-input"><label>¥1 يساوي</label><input id="panelRate" type="number" step="0.0001" value="0.82"><span>د.ل</span></div>
+      <button onclick="saveAdminSettings()">حفظ التغييرات</button>
+    </article>
+
+    <article class="admin-card">
+      <div class="card-title"><span>📦</span><div><b>أسعار الشحن</b><small>لكل كيلو حسب التصنيف</small></div></div>
+      <div class="rates-list">
+        <label>عادية <input id="shipNormal" type="number" step="0.01" value="10.20"><span>$ / KG</span></label>
+        <label>كوبي <input id="shipCopy" type="number" step="0.01" value="11.00"><span>$ / KG</span></label>
+        <label>كهربائية <input id="shipElectric" type="number" step="0.01" value="11.50"><span>$ / KG</span></label>
+        <label>كوزماتكس <input id="shipCosmetics" type="number" step="0.01" value="11.50"><span>$ / KG</span></label>
+      </div>
+    </article>
+
+    <article class="admin-card">
+      <div class="card-title"><span>💰</span><div><b>العمولة</b><small>تُحسب على قيمة المنتج</small></div></div>
+      <div class="admin-input"><label>عمولة الشراء</label><input id="commission" type="number" step="0.1" value="0"><span>%</span></div>
+      <label class="switch-row"><span>إظهار العمولة للزبون</span><input id="showCommission" type="checkbox" checked></label>
+    </article>
+
+    <article class="admin-card">
+      <div class="card-title"><span>⚙️</span><div><b>المنصات</b><small>مصادر البحث المتاحة</small></div></div>
+      <label class="switch-row"><span>1688</span><input type="checkbox" checked></label>
+      <label class="switch-row"><span>Taobao</span><input type="checkbox" checked></label>
+      <label class="switch-row"><span>Pinduoduo</span><input type="checkbox" checked></label>
+    </article>
+  </div>
+
+  <div class="admin-summary">
+    <div><span>سعر اليوان</span><b id="summaryRate">0.82 د.ل</b></div>
+    <div><span>العمولة</span><b id="summaryCommission">0%</b></div>
+    <div><span>الشحن العادي</span><b id="summaryShipping">10.20 $/KG</b></div>
+    <div><span>آخر تحديث</span><b id="summaryDate">اليوم</b></div>
+  </div>
+</section>
+
+<section class="admin-rate" id="adminRate">
+  <div>
+    <span class="eyebrow">لوحة التحكم</span>
+    <h2>تحديث سعر اليوان</h2>
+    <p>غيّر سعر اليوان يوميًا، وسيُعاد حساب أسعار المنتجات بالدينار الليبي تلقائيًا.</p>
+  </div>
+  <div class="rate-control">
+    <label>¥1 =</label>
+    <input id="adminRateInput" type="number" step="0.01" min="0" placeholder="0.82">
+    <span>د.ل</span>
+    <button onclick="updateRate()">حفظ السعر</button>
+  </div>
+  <small id="rateUpdated">السعر الحالي: 0.82 د.ل لكل ¥1</small>
+</section>
+
+<footer><b>السلة الذكية</b> — شراء وشحن من الصين إلى ليبيا</footer>
+
+<div id="authOverlay" class="overlay" onclick="closeAuth(event)">
+  <div class="auth-modal" onclick="event.stopPropagation()">
+    <button class="auth-close" onclick="closeAuth()">×</button>
+    <img class="auth-logo-img" src="logo.jpeg" alt="شعار السلة الذكية">
+    <span class="eyebrow">حساب السلة الذكية</span>
+    <h2>سجّل دخولك أو أنشئ حساب</h2>
+    <p>استخدم البريد الإلكتروني أو رقم الهاتف لمتابعة طلباتك وحفظ مشترياتك.</p>
+    <div class="auth-tabs">
+      <button class="active" id="phoneTab" onclick="setAuthMode('phone')">رقم الهاتف</button>
+      <button id="emailTab" onclick="setAuthMode('email')">البريد الإلكتروني</button>
+    </div>
+    <div id="phoneField" class="auth-field">
+      <label>رقم الهاتف</label>
+      <div class="phone-input"><span>+218</span><input id="phoneInput" placeholder="91 000 0000" inputmode="tel"></div>
+    </div>
+    <div id="emailField" class="auth-field" style="display:none">
+      <label>البريد الإلكتروني</label>
+      <input id="emailInput" placeholder="name@example.com" type="email">
+    </div>
+    <button class="auth-main" onclick="sendCode()">متابعة وإرسال رمز التحقق</button>
+    <small class="auth-note">سيتم تأكيد الحساب برمز OTP. لن نطلب كلمة مرور في هذه المرحلة.</small>
+    <div id="otpArea" style="display:none">
+      <label>رمز التحقق</label>
+      <input id="otpInput" class="otp-input" placeholder="000000" maxlength="6" inputmode="numeric">
+      <button class="auth-main" onclick="verifyCode()">تأكيد الحساب</button>
+    </div>
+  </div>
+</div>
+
+<div id="overlay" class="overlay" onclick="closeCart(event)">
+  <aside class="drawer" onclick="event.stopPropagation()">
+    <div class="drawer-head"><h2>سلة المشتريات</h2><button onclick="closeCart()">×</button></div>
+    <div id="cartItems"></div>
+    <div class="checkout">
+      <div><span>الإجمالي</span><strong id="cartTotal">0 د.ل</strong></div>
+      <button onclick="checkout()">إرسال طلب الشراء</button>
+    </div>
+  </aside>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
