@@ -213,3 +213,78 @@
   width: 100% !important;
   margin-top: 14px !important;
 }
+/* بطاقة المنتجات الجديدة */
+.sb-product{
+  display:flex !important;
+  flex-direction:column !important;
+  width:100% !important;
+  overflow:hidden !important;
+  background:#fff !important;
+  border:1px solid #e5e7eb !important;
+  border-radius:18px !important;
+  margin-bottom:20px !important;
+}
+
+.sb-image{
+  width:100% !important;
+  height:280px !important;
+  overflow:hidden !important;
+  background:#f7f7f7 !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+}
+
+.sb-image img{
+  width:100% !important;
+  height:100% !important;
+  object-fit:cover !important;
+  display:block !important;
+}
+
+.sb-info{
+  display:block !important;
+  width:100% !important;
+  padding:14px !important;
+  background:#fff !important;
+  position:static !important;
+}
+
+.sb-source{
+  display:block !important;
+  font-size:12px !important;
+  color:#667085 !important;
+  margin-bottom:6px !important;
+}
+
+.sb-title{
+  margin:0 0 10px !important;
+  font-size:17px !important;
+  line-height:1.6 !important;
+  color:#111827 !important;
+}
+
+.sb-price{
+  font-size:21px !important;
+  font-weight:800 !important;
+  color:#111827 !important;
+}
+
+.sb-yuan{
+  margin-top:4px !important;
+  font-size:12px !important;
+  color:#98a2b3 !important;
+}
+
+.sb-add{
+  display:block !important;
+  width:100% !important;
+  margin-top:14px !important;
+  padding:13px !important;
+  border:0 !important;
+  border-radius:12px !important;
+  background:#111827 !important;
+  color:#fff !important;
+  font-size:15px !important;
+  font-weight:700 !important;
+}
