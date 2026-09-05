@@ -580,32 +580,182 @@ let attrText=Object.entries(attrs)
   .join(' | ');
     let options='';
 
-    if(Array.isArray(p.skus)&&p.skus.length){
+if(Array.isArray(p.skus)&&p.skus.length){
 
-      let vals=p.skus.map(
-        s=>JSON.stringify(s.attributes||{})
+  let attrsList=p.skus
+    .map(s=>s.attributes||{})
+    .filter(a=>Object.keys(a).length);
+
+  let colorValues=[
+    ...new Set(
+      attrsList
+        .map(a=>a['颜色']||a['颜色分类']||a['颜色/规格'])
+        .filter(Boolean)
+    )
+  ];
+
+  let sizeValues=[
+    ...new Set(
+      attrsList
+        .map(a=>a['尺寸']||a['尺码']||a['大小'])
+        .filter(Boolean)
+    )
+  ];
+
+  window.changeSkuOption=function(index,key,value){
+
+    let item=cart[index];
+
+    if(!item||!Array.isArray(item.skus))return;
+
+    let current={
+      ...(item.skuAttrs||{})
+    };
+
+    current[key]=value;
+
+    let sku=item.skus.find(s=>{
+
+      let a=s.attributes||{};
+
+      return Object.entries(current).every(
+        ([k,v])=>!v||String(a[k])===String(v)
       );
 
-      let unique=[...new Set(vals)];
+    });
 
-      options=`
-        <select
-          onchange="changeSku(${i},this.value)"
-          style="width:100%;padding:8px;margin-top:8px"
-        >
-          ${unique.map(v=>`
-            <option
-              value='${v}'
-              ${v===JSON.stringify(attrs)?'selected':''}
-            >
-${Object.entries(JSON.parse(v))
-  .map(([k,x])=>translateAttr(k,x))
-  .join(' | ')}
-            </option>
-          `).join('')}
-        </select>
-      `;
+    if(!sku){
+
+      sku=item.skus.find(s=>
+        String(
+          (s.attributes||{})[key]
+        )===String(value)
+      );
+
     }
+
+    if(sku){
+
+      item.sku=sku;
+      item.skuAttrs=sku.attributes||{};
+
+    }
+
+    renderCart();
+
+  };
+
+  options=`
+
+    ${
+      colorValues.length
+      ? `
+      <div style="margin-bottom:10px">
+
+        <div style="
+          font-weight:700;
+          margin-bottom:5px;
+          text-align:right;
+        ">
+          اللون
+        </div>
+
+        <select
+          onchange="changeSkuOption(${i},'颜色',this.value)"
+          style="
+            width:100%;
+            padding:10px;
+            border:1px solid #ddd;
+            border-radius:10px;
+            background:#fff;
+          "
+        >
+
+          ${
+            colorValues.map(v=>`
+
+              <option
+                value="${String(v).replace(/"/g,'&quot;')}"
+                ${
+                  String(
+                    (attrs||{})['颜色'] ||
+                    (attrs||{})['颜色分类'] ||
+                    (attrs||{})['颜色/规格'] ||
+                    ''
+                  )===String(v)
+                  ? 'selected'
+                  : ''
+                }
+              >
+                ${translateAttr('颜色',v)}
+              </option>
+
+            `).join('')
+          }
+
+        </select>
+
+      </div>
+      `
+      : ''
+    }
+
+    ${
+      sizeValues.length
+      ? `
+      <div>
+
+        <div style="
+          font-weight:700;
+          margin-bottom:5px;
+          text-align:right;
+        ">
+          المقاس
+        </div>
+
+        <select
+          onchange="changeSkuOption(${i},'尺寸',this.value)"
+          style="
+            width:100%;
+            padding:10px;
+            border:1px solid #ddd;
+            border-radius:10px;
+            background:#fff;
+          "
+        >
+
+          ${
+            sizeValues.map(v=>`
+
+              <option
+                value="${String(v).replace(/"/g,'&quot;')}"
+                ${
+                  String(
+                    (attrs||{})['尺寸'] ||
+                    (attrs||{})['尺码'] ||
+                    (attrs||{})['大小'] ||
+                    ''
+                  )===String(v)
+                  ? 'selected'
+                  : ''
+                }
+              >
+                ${translateAttr('尺寸',v)}
+              </option>
+
+            `).join('')
+          }
+
+        </select>
+
+      </div>
+      `
+      : ''
+    }
+
+  `;
+
+}
 
     let total=skuPrice(p)*p.qty;
 
