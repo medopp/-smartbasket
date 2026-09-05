@@ -11,19 +11,34 @@ export async function onRequest(context) {
 
   try {
     const requestUrl = new URL(context.request.url);
-    const productUrl = requestUrl.searchParams.get("url");
+    const inputText = requestUrl.searchParams.get("url");
 
-    if (!productUrl) {
+    if (!inputText) {
       return Response.json(
-        { success: false, error: "ضع رابط المنتج" },
+        { success: false, error: "ضع رابط المنتج أو نص مشاركة 1688" },
         { status: 400, headers: cors }
       );
     }
 
-    let inputUrl;
+    // استخراج رابط 1688 من النص حتى لو كان النص يحتوي على كلام صيني
+    const urlMatch = inputText.match(
+      /https?:\/\/[^\s"'<>]+/i
+    );
+
+    if (!urlMatch) {
+      return Response.json(
+        { success: false, error: "لم نجد رابط 1688 داخل النص" },
+        { status: 400, headers: cors }
+      );
+    }
+
+    let productUrl = urlMatch[0]
+      .replace(/[)\]}>，。；;]+$/g, "");
+
+    let parsedUrl;
 
     try {
-      inputUrl = new URL(productUrl);
+      parsedUrl = new URL(productUrl);
     } catch {
       return Response.json(
         { success: false, error: "الرابط غير صحيح" },
@@ -31,75 +46,167 @@ export async function onRequest(context) {
       );
     }
 
-    const host = inputUrl.hostname.toLowerCase();
+    const host = parsedUrl.hostname.toLowerCase();
 
-    if (!host.includes("1688.com")) {
+    if (
+      !host.includes("1688.com")
+    ) {
       return Response.json(
-        { success: false, error: "حالياً هذا الرابط مخصص لـ 1688 فقط" },
+        { success: false, error: "الرابط ليس رابط 1688" },
         { status: 400, headers: cors }
       );
     }
 
+    let offerId = null;
     let finalUrl = productUrl;
 
-    // Resolve short 1688 links such as qr.1688.com
-    try {
-      const resolved = await fetch(productUrl, {
-        method: "GET",
-        redirect: "follow",
-        headers: {
-          "User-Agent": "Mozilla/5.0"
+    // --------------------------------------------------
+    // 1. محاولة استخراج رقم المنتج مباشرة من الرابط
+    // --------------------------------------------------
+
+    function extractOfferId(text) {
+      if (!text) return null;
+
+      const patterns = [
+        /\/offer\/(\d{8,})/i,
+        /offerId[=\/](\d{8,})/i,
+        /offer_id[=\/](\d{8,})/i
+      ];
+
+      for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (match) return match[1];
+      }
+
+      // آخر محاولة: أي رقم طويل يشبه رقم منتج 1688
+      const numbers = text.match(/\d{10,}/g);
+
+      if (numbers && numbers.length) {
+        return numbers[0];
+      }
+
+      return null;
+    }
+
+    offerId = extractOfferId(productUrl);
+
+    // --------------------------------------------------
+    // 2. إذا كان رابط QR مختصر، نحاول فك التحويل
+    // --------------------------------------------------
+
+    if (!offerId) {
+      try {
+        const shortResponse = await fetch(productUrl, {
+          method: "GET",
+          redirect: "manual",
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1",
+            "Accept":
+              "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+          }
+        });
+
+        const location =
+          shortResponse.headers.get("location");
+
+        if (location) {
+          try {
+            finalUrl = new URL(
+              location,
+              productUrl
+            ).toString();
+          } catch {}
         }
-      });
 
-      if (resolved.url) {
-        finalUrl = resolved.url;
-      }
-    } catch {
-      // Continue using the original URL
+        offerId = extractOfferId(finalUrl);
+
+        // --------------------------------------------------
+        // 3. لو لم يظهر في Location، نقرأ الصفحة نفسها
+        // --------------------------------------------------
+
+        if (!offerId) {
+          const html = await shortResponse.text();
+
+          offerId = extractOfferId(html);
+
+          if (!offerId) {
+            const htmlUrlMatch = html.match(
+              /https?:\/\/[^"'<>\\\s]+/gi
+            );
+
+            if (htmlUrlMatch) {
+              for (const possibleUrl of htmlUrlMatch) {
+                const id = extractOfferId(possibleUrl);
+
+                if (id) {
+                  offerId = id;
+                  finalUrl = possibleUrl;
+                  break;
+                }
+              }
+            }
+          }
+        }
+      } catch {}
     }
 
-    let offerId = null;
+    // --------------------------------------------------
+    // 4. محاولة ثانية باستخدام redirect follow
+    // --------------------------------------------------
 
-    // Look for the 1688 offer ID in the final URL
-    const offerMatch = finalUrl.match(/(?:offer|offerId)[\/=](\d{8,})/i);
-
-    if (offerMatch) {
-      offerId = offerMatch[1];
-    }
-
-    // Fallback: find any long numeric ID in the URL
     if (!offerId) {
-      const numbers = finalUrl.match(/\d{10,}/g);
-      if (numbers && numbers.length) {
-        offerId = numbers[0];
-      }
+      try {
+        const resolved = await fetch(productUrl, {
+          method: "GET",
+          redirect: "follow",
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1"
+          }
+        });
+
+        if (resolved.url) {
+          finalUrl = resolved.url;
+          offerId = extractOfferId(finalUrl);
+        }
+
+        if (!offerId) {
+          const html = await resolved.text();
+          offerId = extractOfferId(html);
+        }
+      } catch {}
     }
 
-    // Also check the original URL
-    if (!offerId) {
-      const numbers = productUrl.match(/\d{10,}/g);
-      if (numbers && numbers.length) {
-        offerId = numbers[0];
-      }
-    }
+    // --------------------------------------------------
+    // 5. إذا فشل استخراج رقم المنتج
+    // --------------------------------------------------
 
     if (!offerId) {
       return Response.json(
         {
           success: false,
-          error: "لم نتمكن من استخراج رقم منتج 1688 من الرابط",
-          url: finalUrl
+          error:
+            "لم نتمكن من استخراج رقم منتج 1688 من الرابط المختصر",
+          url: productUrl
         },
         { status: 400, headers: cors }
       );
     }
 
+    // --------------------------------------------------
+    // 6. Parse API
+    // --------------------------------------------------
+
     const apiKey = context.env.PARSE_API_KEY;
 
     if (!apiKey) {
       return Response.json(
-        { success: false, error: "PARSE_API_KEY غير مضبوط في Cloudflare" },
+        {
+          success: false,
+          error:
+            "PARSE_API_KEY غير مضبوط في Cloudflare"
+        },
         { status: 500, headers: cors }
       );
     }
@@ -138,18 +245,35 @@ export async function onRequest(context) {
         platform: "1688",
         offer_id: offerId,
         source_url: productUrl,
+
         title: data.title || "",
-        price: data.price_display || data.min_price || data.price || "",
+
+        price:
+          data.price_display ||
+          data.min_price ||
+          data.price ||
+          "",
+
         min_price: data.min_price || "",
         max_price: data.max_price || "",
+
         currency: "CNY",
         unit: data.unit || "",
         moq: data.moq ?? null,
+
         company_name: data.company_name || "",
         province: data.province || "",
         city: data.city || "",
-        images: Array.isArray(data.images) ? data.images : [],
-        detail_url: data.detail_url || finalUrl,
+
+        images:
+          Array.isArray(data.images)
+            ? data.images
+            : [],
+
+        detail_url:
+          data.detail_url ||
+          finalUrl,
+
         raw: data
       },
       { headers: cors }
@@ -160,7 +284,9 @@ export async function onRequest(context) {
       {
         success: false,
         error: "حدث خطأ في جلب بيانات المنتج",
-        details: error?.message || String(error)
+        details:
+          error?.message ||
+          String(error)
       },
       { status: 500, headers: cors }
     );
