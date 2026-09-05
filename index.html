@@ -279,44 +279,26 @@ let translatedSkus=originalSkus.map(s=>({
 
 try{
 
-  const texts=[
-    data.title || '',
-    ...originalSkus.flatMap(s=>
-      Object.values(s.attributes || {})
-        .map(v=>String(v))
-    )
-  ];
-
-  const uniqueTexts=[
-    ...new Set(texts.filter(Boolean))
-  ];
-
   const tr=await fetch('/api/translate',{
     method:'POST',
     headers:{
       'Content-Type':'application/json'
     },
     body:JSON.stringify({
-      texts:uniqueTexts
+      text:data.title || ''
     })
   });
 
   const trData=await tr.json();
 
-if(
-  trData.success &&
-  Array.isArray(trData.translated) &&
-  trData.translated[0]
-){
-
-  const translated=
-    String(trData.translated[0]).trim();
-
-  if(/[\u0600-\u06FF]/.test(translated)){
-    translatedTitle=translated;
+  if(
+    trData.success &&
+    typeof trData.translated === 'string' &&
+    /[\u0600-\u06FF]/.test(trData.translated)
+  ){
+    translatedTitle=
+      trData.translated.trim();
   }
-
-}
 
 }catch(e){
 
