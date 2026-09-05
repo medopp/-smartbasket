@@ -408,9 +408,10 @@ function renderCart(){
 
   el.innerHTML=cart.map((p,i)=>{
 
-    let attrs=p.skuAttrs||{};
+let attrs=p.skuAttrs||{};
+let displayAttrs=p.sku?.translatedAttributes||attrs;
 
-    let attrText=Object.entries(attrs)
+    let attrText=Object.entries(displayAttrs)
       .map(([k,v])=>{
         let translated=v;
 
