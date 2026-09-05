@@ -18,26 +18,36 @@ function renderProducts(list=products){
  let arr=[...list];
  if(sort==='price')arr.sort((a,b)=>a.yuan-b.yuan);
  document.getElementById('productGrid').innerHTML=arr.map(p=>`
-<article class="sb-product">
-  <div class="sb-image">
+<article class="sb-product" style="display:flex!important;flex-direction:column!important;position:relative!important;height:auto!important;overflow:hidden!important;">
+
+  <div class="sb-image" style="position:relative!important;width:100%!important;height:280px!important;min-height:280px!important;overflow:hidden!important;flex:none!important;">
     ${p.icon}
   </div>
 
-  <div class="sb-info">
-    <span class="sb-source">${p.source}</span>
+  <div class="sb-info" style="position:static!important;display:block!important;width:100%!important;height:auto!important;padding:14px!important;background:#fff!important;">
 
-    <h3 class="sb-title">${p.title}</h3>
+    <span class="sb-source" style="display:block!important;position:static!important;">
+      ${p.source}
+    </span>
 
-    <div class="sb-price">${money(p.yuan)}</div>
+    <h3 class="sb-title" style="position:static!important;margin:8px 0!important;">
+      ${p.title}
+    </h3>
 
-    <div class="sb-yuan">¥${p.yuan} قبل التحويل</div>
+    <div class="sb-price" style="position:static!important;margin:0!important;">
+      ${money(p.yuan)}
+    </div>
 
-    <button class="sb-add" onclick="addCart(${p.id})">
+    <div class="sb-yuan" style="position:static!important;margin-top:4px!important;">
+      ¥${p.yuan} قبل التحويل
+    </div>
+
+    <button class="sb-add" style="position:static!important;display:block!important;width:100%!important;margin-top:14px!important;" onclick="addCart(${p.id})">
       + أضف للسلة
     </button>
+
   </div>
 </article>`).join('');
-}
 }
 
 function updateRate(){
