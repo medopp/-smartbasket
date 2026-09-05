@@ -265,16 +265,34 @@ async function searchProducts(){
       throw new Error(data.error || 'تعذر جلب بيانات المنتج');
     }
 
-    const product={
-      id:data.offer_id,
-      icon:data.images && data.images.length
-      ? `<img src="/api/image?url=${encodeURIComponent(data.images[0])}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`
-        : '📦',
-      source:'1688',
-      title:data.title || 'منتج من 1688',
-yuan:Number(data.price) || 0,
-skus:Array.isArray(data.raw?.skus) ? data.raw.skus : []
-    };
+let translatedTitle=data.title||'';
+
+try{
+  const tr=await fetch('/api/translate',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({texts:[data.title||'']})
+  });
+
+  const trData=await tr.json();
+
+  if(trData.success && Array.isArray(trData.translated)){
+    translatedTitle=trData.translated[0]||translatedTitle;
+  }
+}catch(e){
+  console.log('Title translation skipped:',e);
+}
+
+const product={
+  id:data.offer_id,
+  icon:data.images && data.images.length
+  ? `<img src="/api/image?url=${encodeURIComponent(data.images[0])}">`
+  : '📦',
+  source:'1688',
+  title:translatedTitle || data.title || '1688 من منتج',
+  yuan:Number(data.price) || 0,
+  skus:Array.isArray(data.raw?.skus) ? data.raw.skus : []
+};
 
     products=[product];
 
