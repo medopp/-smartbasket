@@ -157,3 +157,59 @@
   width: 100% !important;
   margin-top: 14px !important;
 }
+/* ===== ترتيب بطاقة المنتج - نهائي ===== */
+
+#productGrid .card {
+  display: flex !important;
+  flex-direction: column !important;
+  position: relative !important;
+  height: auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+
+#productGrid .card .pic {
+  display: block !important;
+  position: relative !important;
+  width: 100% !important;
+  height: 280px !important;
+  min-height: 280px !important;
+  flex: 0 0 280px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+
+#productGrid .card .pic img {
+  display: block !important;
+  position: static !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+
+#productGrid .card .card-body {
+  display: block !important;
+  position: static !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 14px !important;
+  margin: 0 !important;
+  background: #fff !important;
+  transform: none !important;
+}
+
+#productGrid .card .source,
+#productGrid .card h3,
+#productGrid .card .price,
+#productGrid .card .yuan,
+#productGrid .card .add {
+  position: static !important;
+}
+
+#productGrid .card .add {
+  display: block !important;
+  width: 100% !important;
+  margin-top: 14px !important;
+}
