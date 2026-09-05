@@ -272,10 +272,8 @@ async function searchProducts(){
         : '📦',
       source:'1688',
       title:data.title || 'منتج من 1688',
-  yuan:Number(data.price) || 0,
-skus:Array.isArray(data.raw?.skus)
-  ? data.raw.skus
-  : (Array.isArray(data.skus) ? data.skus : [])
+      yuan:Number(data.price) || 0
+    };
 
     products=[product];
 
@@ -298,111 +296,18 @@ skus:Array.isArray(data.raw?.skus)
     );
   }
 }
-function addCart(id){
-  const p=products.find(x=>x.id==id);
-  if(!p)return;
-
-  cart.push({
-    ...p,
-    quantity:1,
-    selectedSku:null,
-    unitYuan:p.yuan
-  });
-
-  renderCart();
-  alert('تمت إضافة المنتج للسلة');
-}
-
-
-function openCart(){
-  document.getElementById('overlay').classList.add('show');
-}
-
-
-function closeCart(e){
-  if(!e || e.target.id==='overlay'){
-    document.getElementById('overlay').classList.remove('show');
-  }
-}
-
-
+function addCart(id){let p=products.find(x=>x.id===id);cart.push(p);document.getElementById('cartCount').textContent=cart.length;openCart()}
+function openCart(){document.getElementById('overlay').classList.add('open');renderCart()}
+function closeCart(e){if(!e||e.target.id==='overlay')document.getElementById('overlay').classList.remove('open')}
 function renderCart(){
-  const el=document.getElementById('cartItems');
-
-  if(!cart.length){
-    el.innerHTML='<p style="color:#667085">السلة فارغة.</p>';
-    document.getElementById('cartTotal').textContent='0 د.ل';
-    return;
-  }
-
-  el.innerHTML=cart.map((p,i)=>`
-    <div class="cart-row" style="
-      display:flex;
-      gap:12px;
-      align-items:center;
-      margin-bottom:12px;
-      padding-bottom:12px;
-      border-bottom:1px solid #eee;
-    ">
-      <div style="width:60px;height:60px;overflow:hidden;border-radius:10px">
-        ${p.icon || '📦'}
-      </div>
-
-      <div style="flex:1">
-        <strong>${p.title || 'منتج'}</strong>
-
-        <div style="color:#667085;font-size:13px;margin-top:4px">
-          الكمية: ${p.quantity || 1}
-        </div>
-
-        <div style="font-weight:700;margin-top:4px">
-          ${money((p.unitYuan || p.yuan || 0) * (p.quantity || 1))}
-        </div>
-      </div>
-
-      <button
-        onclick="removeCart(${i})"
-        style="
-          border:0;
-          background:#fee4e2;
-          color:#b42318;
-          border-radius:9px;
-          padding:8px 10px;
-        "
-      >حذف</button>
-    </div>
-  `).join('');
-
-  const total=cart.reduce(
-    (sum,p)=>
-      sum+(Number(p.unitYuan || p.yuan || 0)*(p.quantity || 1)),
-    0
-  );
-
-  document.getElementById('cartTotal').textContent=money(total);
+ let el=document.getElementById('cartItems');
+ if(!cart.length){el.innerHTML='<p style="color:#667085;text-align:center;padding:40px">السلة فارغة حالياً.</p>';document.getElementById('cartTotal').textContent='0 د.ل';return}
+ el.innerHTML=cart.map((p,i)=>`<div class="cart-row"><div class="thumb">${p.icon}</div><div class="grow"><b>${p.title}</b><br><small>${p.source} • ¥${p.yuan}</small><br><strong>${money(p.yuan)}</strong></div><button onclick="removeCart(${i})" style="border:0;background:none;cursor:pointer">حذف</button></div>`).join('');
+ document.getElementById('cartTotal').textContent=money(cart.reduce((s,p)=>s+p.yuan,0));
 }
-
-
-function removeCart(i){
-  cart.splice(i,1);
-  renderCart();
-}
-
-
-function checkout(){
-  if(!cart.length){
-    return alert('السلة فارغة');
-  }
-
-  alert('تم تجهيز الطلب. الخطوة التالية هي تأكيد بيانات العميل.');
-}
-
-
-function trackOrder(){
-  document.getElementById('trackOrder').scrollIntoView({
-    behavior:'smooth'
-  });
-}
+function removeCart(i){cart.splice(i,1);document.getElementById('cartCount').textContent=cart.length;renderCart()}
+function checkout(){if(!cart.length)return alert('السلة فارغة');alert('هذه نسخة التصميم التجريبية. في النسخة الحقيقية هنا يتم إنشاء طلب وإرساله إلى لوحة شركة السلة الذكية.')}
+function trackOrder(){document.getElementById('trackResult').innerHTML='<div class="track-msg">🔎 مثال تجريبي: سيتم ربط هذه الصفحة لاحقاً بنظام تتبع الطلبات الخاص بالشركة.</div>'}
 renderProducts();
 
 let authMode='phone';
