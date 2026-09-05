@@ -58,72 +58,162 @@ export async function onRequest(context) {
 
     let translated = "";
 
-    /*
-      MyMemory
-      mt=1 = استخدام الترجمة الآلية
-    */
-    try {
-      const url =
-        "https://api.mymemory.translated.net/get" +
-        "?q=" +
-        encodeURIComponent(text) +
-        "&langpair=zh-CN|ar" +
-        "&mt=1";
+    // =====================================
+    // 1 - Argos / LibreTranslate
+    // =====================================
 
-      const response = await fetch(url);
+    try {
+      const controller = new AbortController();
+
+      const timeout = setTimeout(() => {
+        controller.abort();
+      }, 8000);
+
+      const response = await fetch(
+        "https://translate.argosopentech.com/translate",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            q: text,
+            source: "zh",
+            target: "ar"
+          }),
+          signal: controller.signal
+        }
+      );
+
+      clearTimeout(timeout);
 
       if (response.ok) {
         const data = await response.json();
 
-        const result =
-          data?.responseData?.translatedText;
-
         if (
-          result &&
-          /[\u0600-\u06FF]/.test(result)
+          data?.translatedText &&
+          /[\u0600-\u06FF]/.test(
+            data.translatedText
+          )
         ) {
-          translated = String(result).trim();
+          translated =
+            String(data.translatedText).trim();
         }
       }
+
     } catch (error) {
       translated = "";
     }
 
-    /*
-      إذا لم تنجح الترجمة، نحاول Google
-    */
-    if (!translated) {
-      try {
-        const url =
-          "https://translate.googleapis.com/translate_a/single" +
-          "?client=gtx" +
-          "&sl=zh-CN" +
-          "&tl=ar" +
-          "&dt=t" +
-          "&q=" +
-          encodeURIComponent(text);
 
-        const response = await fetch(url);
+    // =====================================
+    // 2 - MyMemory
+    // =====================================
+
+    if (!translated) {
+
+      try {
+
+        const controller = new AbortController();
+
+        const timeout = setTimeout(() => {
+          controller.abort();
+        }, 8000);
+
+        const url =
+          "https://api.mymemory.translated.net/get" +
+          "?q=" +
+          encodeURIComponent(text) +
+          "&langpair=zh-CN|ar" +
+          "&mt=1";
+
+        const response = await fetch(url, {
+          signal: controller.signal
+        });
+
+        clearTimeout(timeout);
 
         if (response.ok) {
+
           const data = await response.json();
 
-          if (Array.isArray(data?.[0])) {
-            translated = data[0]
-              .map(item => item?.[0] || "")
-              .join("")
-              .trim();
+          const result =
+            data?.responseData?.translatedText;
+
+          if (
+            result &&
+            /[\u0600-\u06FF]/.test(result)
+          ) {
+            translated =
+              String(result).trim();
           }
         }
+
       } catch (error) {
         translated = "";
       }
     }
 
-    /*
-      مهم:
-      الموقع لن يعرض النص الصيني إذا فشلت الترجمة.
-    */
+
+    // =====================================
+    // 3 - Google
+    // =====================================
+
+    if (!translated) {
+
+      try {
+
+        const controller = new AbortController();
+
+        const timeout = setTimeout(() => {
+          controller.abort();
+        }, 8000);
+
+        const url =
+          "https://translate.googleapis.com/translate_a/single" +
+          "?client=gtx" +
+          "&sl=zh" +
+          "&tl=ar" +
+          "&dt=t" +
+          "&q=" +
+          encodeURIComponent(text);
+
+        const response = await fetch(url, {
+          signal: controller.signal
+        });
+
+        clearTimeout(timeout);
+
+        if (response.ok) {
+
+          const data = await response.json();
+
+          if (Array.isArray(data?.[0])) {
+
+            const result = data[0]
+              .map(item => item?.[0] || "")
+              .join("")
+              .trim();
+
+            if (
+              result &&
+              /[\u0600-\u06FF]/.test(result)
+            ) {
+              translated = result;
+            }
+          }
+        }
+
+      } catch (error) {
+        translated = "";
+      }
+    }
+
+
+    // =====================================
+    // النتيجة النهائية
+    // =====================================
+
     if (
       !translated ||
       !/[\u0600-\u06FF]/.test(translated)
@@ -147,11 +237,11 @@ export async function onRequest(context) {
     );
 
   } catch (error) {
+
     return new Response(
       JSON.stringify({
         success: false,
-        error: "تعذر ترجمة النص",
-        details: error?.message || String(error)
+        error: "تعذر ترجمة النص"
       }),
       {
         status: 500,
