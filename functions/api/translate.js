@@ -18,43 +18,61 @@ export async function onRequest(context) {
 
   try {
     const body = await context.request.json();
-    const text = String(body.text || "").trim();
 
-    if (!text) {
+    let texts = body.texts;
+
+    if (!Array.isArray(texts)) {
+      texts = [body.text || ""];
+    }
+
+    texts = texts
+      .map(x => String(x || "").trim())
+      .filter(Boolean);
+
+    if (!texts.length) {
       return Response.json(
         { success: false, error: "النص فارغ" },
         { status: 400, headers: cors }
       );
     }
 
-    const url =
-      "https://translate.googleapis.com/translate_a/single" +
-      "?client=gtx" +
-      "&sl=zh-CN" +
-      "&tl=ar" +
-      "&dt=t" +
-      "&q=" +
-      encodeURIComponent(text);
+    const translated = await Promise.all(
+      texts.map(async text => {
+        try {
+          const url =
+            "https://translate.googleapis.com/translate_a/single" +
+            "?client=gtx" +
+            "&sl=zh-CN" +
+            "&tl=ar" +
+            "&dt=t" +
+            "&q=" +
+            encodeURIComponent(text);
 
-    const response = await fetch(url);
+          const response = await fetch(url);
 
-    if (!response.ok) {
-      throw new Error("Translation service error");
-    }
+          if (!response.ok) return text;
 
-    const data = await response.json();
+          const data = await response.json();
 
-    const translated = Array.isArray(data?.[0])
-      ? data[0]
-          .map(item => item?.[0] || "")
-          .join("")
-      : "";
+          const result = Array.isArray(data?.[0])
+            ? data[0]
+                .map(item => item?.[0] || "")
+                .join("")
+            : "";
+
+          return result || text;
+
+        } catch {
+          return text;
+        }
+      })
+    );
 
     return Response.json(
       {
         success: true,
-        original: text,
-        translated: translated || text
+        original: texts,
+        translated
       },
       { headers: cors }
     );
