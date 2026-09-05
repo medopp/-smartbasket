@@ -18,20 +18,36 @@ function renderProducts(list=products){
  let arr=[...list];
  if(sort==='price')arr.sort((a,b)=>a.yuan-b.yuan);
  document.getElementById('productGrid').innerHTML=arr.map(p=>`
-<article class="card">
-  <div class="pic">${p.icon}</div>
+<article class="card" style="display:flex !important;flex-direction:column !important;position:relative !important;height:auto !important;overflow:hidden !important;padding:0 !important;">
 
-  <div class="card-body">
-    <span class="source">${p.source}</span>
-    <h3>${p.title}</h3>
+  <div class="pic" style="display:block !important;position:relative !important;width:100% !important;height:280px !important;min-height:280px !important;flex:none !important;overflow:hidden !important;padding:0 !important;">
+    ${p.icon}
+  </div>
 
-    <div class="price">${money(p.yuan)}</div>
-    <div class="yuan">قبل التحويل ¥${p.yuan}</div>
+  <div class="card-body" style="display:block !important;position:static !important;width:100% !important;height:auto !important;padding:14px !important;margin:0 !important;background:#fff !important;">
 
-    <button class="add" onclick="addCart(${p.id})">
+    <span class="source" style="display:block !important;position:static !important;">
+      ${p.source}
+    </span>
+
+    <h3 style="position:static !important;margin:6px 0 10px !important;">
+      ${p.title}
+    </h3>
+
+    <div class="price" style="position:static !important;margin:0 !important;">
+      ${money(p.yuan)}
+    </div>
+
+    <div class="yuan" style="position:static !important;margin-top:4px !important;">
+      ¥${p.yuan} قبل التحويل
+    </div>
+
+    <button class="add" onclick="addCart(${p.id})" style="position:static !important;width:100% !important;margin-top:14px !important;">
       + أضف للسلة
     </button>
+
   </div>
+
 </article>`).join('');
 }
 
