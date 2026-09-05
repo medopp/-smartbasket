@@ -297,19 +297,187 @@ skus:Array.isArray(data.raw?.skus) ? data.raw.skus : []
     );
   }
 }
-function addCart(id){let p=products.find(x=>x.id===id);cart.push(p);document.getElementById('cartCount').textContent=cart.length;openCart()}
-function openCart(){document.getElementById('overlay').classList.add('open');renderCart()}
-function closeCart(e){if(!e||e.target.id==='overlay')document.getElementById('overlay').classList.remove('open')}
-function renderCart(){
- let el=document.getElementById('cartItems');
- if(!cart.length){el.innerHTML='<p style="color:#667085;text-align:center;padding:40px">السلة فارغة حالياً.</p>';document.getElementById('cartTotal').textContent='0 د.ل';return}
- el.innerHTML=cart.map((p,i)=>`<div class="cart-row"><div class="thumb">${p.icon}</div><div class="grow"><b>${p.title}</b><br><small>${p.source} • ¥${p.yuan}</small><br><strong>${money(p.yuan)}</strong></div><button onclick="removeCart(${i})" style="border:0;background:none;cursor:pointer">حذف</button></div>`).join('');
- document.getElementById('cartTotal').textContent=money(cart.reduce((s,p)=>s+p.yuan,0));
+function addCart(id){
+  let p=products.find(x=>x.id==id);
+  if(!p)return;
+
+  let skus=Array.isArray(p.skus)?p.skus:[];
+  let sku=skus[0]||null;
+
+  cart.push({
+    ...p,
+    qty:1,
+    sku:sku,
+    skuAttrs:sku?.attributes||{}
+  });
+
+  document.getElementById('overlay').classList.add('open');
+  renderCart();
 }
-function removeCart(i){cart.splice(i,1);document.getElementById('cartCount').textContent=cart.length;renderCart()}
-function checkout(){if(!cart.length)return alert('السلة فارغة');alert('هذه نسخة التصميم التجريبية. في النسخة الحقيقية هنا يتم إنشاء طلب وإرساله إلى لوحة شركة السلة الذكية.')}
-function trackOrder(){document.getElementById('trackResult').innerHTML='<div class="track-msg">🔎 مثال تجريبي: سيتم ربط هذه الصفحة لاحقاً بنظام تتبع الطلبات الخاص بالشركة.</div>'}
-renderProducts();
+
+function openCart(){
+  document.getElementById('overlay').classList.add('open');
+  renderCart();
+}
+
+function closeCart(e){
+  if(!e||e.target.id==='overlay')
+    document.getElementById('overlay').classList.remove('open');
+}
+
+function skuPrice(p){
+  let s=p.sku;
+  if(!s)return Number(p.yuan)||0;
+
+  return Number(
+    s.price||
+    s.sale_price||
+    s.price_display||
+    p.yuan
+  )||0;
+}
+
+function changeQty(i,n){
+  if(!cart[i])return;
+
+  cart[i].qty=Math.max(
+    1,
+    (cart[i].qty||1)+n
+  );
+
+  renderCart();
+}
+
+function changeSku(i,value){
+  let p=cart[i];
+
+  if(!p||!Array.isArray(p.skus))return;
+
+  let s=p.skus.find(
+    x=>JSON.stringify(x.attributes||{})===value
+  );
+
+  if(s){
+    p.sku=s;
+    p.skuAttrs=s.attributes||{};
+  }
+
+  renderCart();
+}
+
+function renderCart(){
+  let el=document.getElementById('cartItems');
+
+  if(!cart.length){
+    el.innerHTML=
+      '<p style="color:#667085;text-align:center;padding:40px">السلة فارغة حالياً</p>';
+
+    document.getElementById('cartTotal').textContent=
+      money(0);
+
+    document.getElementById('cartCount').textContent=
+      0;
+
+    return;
+  }
+
+  el.innerHTML=cart.map((p,i)=>{
+
+    let attrs=p.skuAttrs||{};
+
+    let attrText=Object.entries(attrs)
+      .map(([k,v])=>`${k}: ${v}`)
+      .join(' | ');
+
+    let options='';
+
+    if(Array.isArray(p.skus)&&p.skus.length){
+
+      let vals=p.skus.map(
+        s=>JSON.stringify(s.attributes||{})
+      );
+
+      let unique=[...new Set(vals)];
+
+      options=`
+        <select
+          onchange="changeSku(${i},this.value)"
+          style="width:100%;padding:8px;margin-top:8px"
+        >
+          ${unique.map(v=>`
+            <option
+              value='${v}'
+              ${v===JSON.stringify(attrs)?'selected':''}
+            >
+              ${Object.entries(JSON.parse(v))
+                .map(([k,x])=>`${k}: ${x}`)
+                .join(' | ')}
+            </option>
+          `).join('')}
+        </select>
+      `;
+    }
+
+    let total=skuPrice(p)*p.qty;
+
+    return `
+      <div class="cart-row">
+
+        <div class="thumb">
+          ${p.icon}
+        </div>
+
+        <div class="grow">
+
+          <b>${p.title}</b>
+
+          <div style="margin-top:5px">
+            ${attrText}
+          </div>
+
+          ${options}
+
+          <div style="margin-top:8px;font-weight:bold">
+            ${money(total)}
+          </div>
+
+          <div style="
+            display:flex;
+            align-items:center;
+            gap:10px;
+            margin-top:8px
+          ">
+            <button onclick="changeQty(${i},-1)">−</button>
+
+            <b>${p.qty}</b>
+
+            <button onclick="changeQty(${i},1)">+</button>
+
+            <button onclick="removeCart(${i})">
+              حذف
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('cartTotal').textContent=
+    money(
+      cart.reduce(
+        (s,p)=>s+skuPrice(p)*p.qty,
+        0
+      )
+    );
+
+  document.getElementById('cartCount').textContent=
+    cart.reduce(
+      (s,p)=>s+(p.qty||1),
+      0
+    );
+}
 
 let authMode='phone';
 function openAuth(){document.getElementById('authOverlay').classList.add('open'); refreshAuthState()}
