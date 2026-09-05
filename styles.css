@@ -86,3 +86,74 @@
   font-size: 15px;
   font-weight: 700;
 }
+/* إصلاح نهائي لترتيب بطاقة المنتج */
+.card {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  height: auto !important;
+  overflow: hidden !important;
+}
+
+.card .pic {
+  position: relative !important;
+  width: 100% !important;
+  height: 280px !important;
+  min-height: 280px !important;
+  flex: none !important;
+  overflow: hidden !important;
+  background: #f7f7f7 !important;
+}
+
+.card .pic img {
+  position: static !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+
+.card .card-body {
+  position: static !important;
+  inset: auto !important;
+  width: 100% !important;
+  height: auto !important;
+  padding: 14px !important;
+  background: #fff !important;
+  color: #111827 !important;
+  display: block !important;
+}
+
+.card .source {
+  position: static !important;
+  display: block !important;
+  margin: 0 0 6px !important;
+}
+
+.card h3 {
+  position: static !important;
+  margin: 0 0 8px !important;
+  color: #111827 !important;
+  font-size: 17px !important;
+  line-height: 1.6 !important;
+}
+
+.card .price {
+  position: static !important;
+  margin: 0 !important;
+  color: #111827 !important;
+  font-size: 21px !important;
+  font-weight: 800 !important;
+}
+
+.card .yuan {
+  position: static !important;
+  margin-top: 4px !important;
+  color: #98a2b3 !important;
+}
+
+.card .add {
+  position: static !important;
+  width: 100% !important;
+  margin-top: 14px !important;
+}
