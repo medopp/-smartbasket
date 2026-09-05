@@ -320,7 +320,7 @@ try {
       source:'1688',
 title:translatedTitle || data.title || '1688 من منتج',
 yuan:Number(data.price) || 0,
-skusskus:translatedSkus,
+skus:Array.isArray(data.raw?.skus) ? data.raw.skus : [],
     };
 
     products=[product];
