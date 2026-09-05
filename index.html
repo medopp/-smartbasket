@@ -409,18 +409,20 @@ function renderCart(){
   el.innerHTML=cart.map((p,i)=>{
 
 let attrs=p.skuAttrs||{};
-let displayAttrs=p.sku?.translatedAttributes||attrs;
 
-    let attrText=Object.entries(displayAttrs)
-      .map(([k,v])=>{
-        let translated=v;
+let translatedSku=
+  Array.isArray(p.translatedSkus)
+  ? p.translatedSkus.find(s =>
+      JSON.stringify(s.attributes||{})===JSON.stringify(attrs)
+    )
+  : null;
 
-        if(p.sku && p.sku.translatedAttributes){
-          translated=p.sku.translatedAttributes[k] || v;
-        }
+let displayAttrs=
+  translatedSku?.translatedAttributes || attrs;
 
-        return `${k}: ${translated}`;
-      })
+let attrText=Object.entries(displayAttrs)
+  .map(([k,v])=>`${k}: ${v}`)
+  .join(' | ');
       .join(' | ');
 
     let options='';
