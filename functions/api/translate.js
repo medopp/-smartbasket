@@ -33,16 +33,18 @@ export async function onRequest(context) {
   try {
     const body = await request.json();
 
-    const texts = Array.isArray(body?.texts)
-      ? body.texts
-      : [];
+    const text = String(
+      body?.text ||
+      body?.texts?.[0] ||
+      ""
+    ).trim();
 
-    if (!texts.length) {
+    if (!text) {
       return new Response(
         JSON.stringify({
           success: true,
-          original: [],
-          translated: []
+          original: "",
+          translated: ""
         }),
         {
           status: 200,
@@ -54,20 +56,18 @@ export async function onRequest(context) {
       );
     }
 
-    const originalTitle = String(texts[0] || "").trim();
-
-    let translatedTitle = "";
+    let translated = "";
 
     // Google Translate
     try {
       const url =
         "https://translate.googleapis.com/translate_a/single" +
         "?client=gtx" +
-        "&sl=zh-CN" +
+        "&sl=auto" +
         "&tl=ar" +
         "&dt=t" +
         "&q=" +
-        encodeURIComponent(originalTitle);
+        encodeURIComponent(text);
 
       const response = await fetch(url);
 
@@ -75,23 +75,26 @@ export async function onRequest(context) {
         const data = await response.json();
 
         if (Array.isArray(data?.[0])) {
-          translatedTitle = data[0]
+          translated = data[0]
             .map(item => item?.[0] || "")
             .join("")
             .trim();
         }
       }
     } catch (error) {
-      translatedTitle = "";
+      translated = "";
     }
 
     // MyMemory fallback
-    if (!translatedTitle || !/[\u0600-\u06FF]/.test(translatedTitle)) {
+    if (
+      !translated ||
+      !/[\u0600-\u06FF]/.test(translated)
+    ) {
       try {
         const url =
           "https://api.mymemory.translated.net/get" +
           "?q=" +
-          encodeURIComponent(originalTitle) +
+          encodeURIComponent(text) +
           "&langpair=zh-CN|ar";
 
         const response = await fetch(url);
@@ -106,34 +109,23 @@ export async function onRequest(context) {
             result &&
             /[\u0600-\u06FF]/.test(result)
           ) {
-            translatedTitle = result.trim();
+            translated = result.trim();
           }
         }
       } catch (error) {
-        translatedTitle = "";
+        translated = "";
       }
     }
 
-    if (!translatedTitle) {
-      translatedTitle = originalTitle;
+    if (!translated) {
+      translated = text;
     }
-
-    // الاسم الأول هو اسم المنتج.
-    // باقي القيم نخليها كما هي لأن الموقع
-    // يترجم الألوان والمقاسات محلياً.
-    const translated = texts.map((text, index) => {
-      if (index === 0) {
-        return translatedTitle;
-      }
-
-      return text;
-    });
 
     return new Response(
       JSON.stringify({
         success: true,
-        original: texts,
-        translated
+        original: text,
+        translated: translated
       }),
       {
         status: 200,
