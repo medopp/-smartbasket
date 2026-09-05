@@ -33,7 +33,7 @@ export async function onRequest(context) {
   try {
     const body = await request.json();
 
-    const texts = Array.isArray(body.texts)
+    const texts = Array.isArray(body?.texts)
       ? body.texts
       : [];
 
@@ -54,52 +54,79 @@ export async function onRequest(context) {
       );
     }
 
-    const uniqueTexts = [
-      ...new Set(
-        texts
-          .map(x => String(x || "").trim())
-          .filter(Boolean)
-      )
-    ];
+    const originalTitle = String(texts[0] || "").trim();
 
-    const translatedMap = {};
+    let translatedTitle = "";
 
-    await Promise.all(
-      uniqueTexts.map(async text => {
-        try {
-          const url =
-            "https://api.mymemory.translated.net/get" +
-            "?q=" +
-            encodeURIComponent(text) +
-            "&langpair=zh-CN|ar";
+    // Google Translate
+    try {
+      const url =
+        "https://translate.googleapis.com/translate_a/single" +
+        "?client=gtx" +
+        "&sl=zh-CN" +
+        "&tl=ar" +
+        "&dt=t" +
+        "&q=" +
+        encodeURIComponent(originalTitle);
 
-          const response = await fetch(url);
+      const response = await fetch(url);
 
-          if (!response.ok) {
-            translatedMap[text] = text;
-            return;
-          }
+      if (response.ok) {
+        const data = await response.json();
 
+        if (Array.isArray(data?.[0])) {
+          translatedTitle = data[0]
+            .map(item => item?.[0] || "")
+            .join("")
+            .trim();
+        }
+      }
+    } catch (error) {
+      translatedTitle = "";
+    }
+
+    // MyMemory fallback
+    if (!translatedTitle || !/[\u0600-\u06FF]/.test(translatedTitle)) {
+      try {
+        const url =
+          "https://api.mymemory.translated.net/get" +
+          "?q=" +
+          encodeURIComponent(originalTitle) +
+          "&langpair=zh-CN|ar";
+
+        const response = await fetch(url);
+
+        if (response.ok) {
           const data = await response.json();
 
-          const translated =
+          const result =
             data?.responseData?.translatedText;
 
-          translatedMap[text] =
-            translated && translated.trim()
-              ? translated
-              : text;
-
-        } catch (error) {
-          translatedMap[text] = text;
+          if (
+            result &&
+            /[\u0600-\u06FF]/.test(result)
+          ) {
+            translatedTitle = result.trim();
+          }
         }
-      })
-    );
+      } catch (error) {
+        translatedTitle = "";
+      }
+    }
 
-    const translated = texts.map(text => {
-      const key = String(text || "").trim();
+    if (!translatedTitle) {
+      translatedTitle = originalTitle;
+    }
 
-      return translatedMap[key] || text;
+    // الاسم الأول هو اسم المنتج.
+    // باقي القيم نخليها كما هي لأن الموقع
+    // يترجم الألوان والمقاسات محلياً.
+    const translated = texts.map((text, index) => {
+      if (index === 0) {
+        return translatedTitle;
+      }
+
+      return text;
     });
 
     return new Response(
