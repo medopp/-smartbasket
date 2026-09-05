@@ -20,11 +20,11 @@ function renderProducts(list=products){
  document.getElementById('productGrid').innerHTML=arr.map(p=>`
 <article class="card" style="display:flex !important;flex-direction:column !important;position:relative !important;height:auto !important;overflow:hidden !important;padding:0 !important;">
 
-  <div class="pic" style="display:block !important;position:relative !important;width:100% !important;height:280px !important;min-height:280px !important;flex:none !important;overflow:hidden !important;padding:0 !important;">
+<div class="pic" style="display:block!important;position:relative!important;width:100%!important;height:280px!important;max-height:280px!important;min-height:280px!important;flex:0 0 280px!important;overflow:hidden!important;padding:0!important;margin:0!important;transform:none!important;">
     ${p.icon}
   </div>
 
-  <div class="card-body" style="display:block !important;position:static !important;width:100% !important;height:auto !important;padding:14px !important;margin:0 !important;background:#fff !important;">
+<div class="card-body" style="display:block!important;position:static!important;width:100%!important;height:auto!important;max-height:none!important;min-height:0!important;flex:0 0 auto!important;overflow:visible!important;padding:14px!important;margin:0!important;transform:none!important;">
 
     <span class="source" style="display:block !important;position:static !important;">
       ${p.source}
