@@ -298,18 +298,374 @@ skus:Array.isArray(data.raw?.skus)
     );
   }
 }
-function addCart(id){let p=products.find(x=>x.id===id);cart.push(p);document.getElementById('cartCount').textContent=cart.length;openCart()}
-function openCart(){document.getElementById('overlay').classList.add('open');renderCart()}
-function closeCart(e){if(!e||e.target.id==='overlay')document.getElementById('overlay').classList.remove('open')}
-function renderCart(){
- let el=document.getElementById('cartItems');
- if(!cart.length){el.innerHTML='<p style="color:#667085;text-align:center;padding:40px">السلة فارغة حالياً.</p>';document.getElementById('cartTotal').textContent='0 د.ل';return}
- el.innerHTML=cart.map((p,i)=>`<div class="cart-row"><div class="thumb">${p.icon}</div><div class="grow"><b>${p.title}</b><br><small>${p.source} • ¥${p.yuan}</small><br><strong>${money(p.yuan)}</strong></div><button onclick="removeCart(${i})" style="border:0;background:none;cursor:pointer">حذف</button></div>`).join('');
- document.getElementById('cartTotal').textContent=money(cart.reduce((s,p)=>s+p.yuan,0));
+function addCart(id){
+  const p=products.find(x=>x.id==id);
+  if(!p)return;
+
+  if(!p.skus || !p.skus.length){
+    cart.push({
+      ...p,
+      quantity:1,
+      selectedSku:null,
+      unitYuan:p.yuan
+    });
+    renderCart();
+    return alert('تمت إضافة المنتج للسلة');
+  }
+
+  let selected={};
+  let quantity=1;
+
+  const getSkuAttributes=(sku)=>{
+    const attrs=sku?.attributes || sku?.props || sku?.specs || {};
+    if(typeof attrs==='string'){
+      try{return JSON.parse(attrs)}catch{return {}}
+    }
+    return attrs || {};
+  };
+
+  const getSkuPrice=(sku)=>{
+    return Number(
+      sku?.price ??
+      sku?.sale_price ??
+      sku?.price_display ??
+      sku?.sku_price ??
+      p.yuan
+    ) || p.yuan;
+  };
+
+  const allAttributes={};
+
+  p.skus.forEach(sku=>{
+    const attrs=getSkuAttributes(sku);
+
+    Object.entries(attrs).forEach(([key,value])=>{
+      if(!allAttributes[key])allAttributes[key]=[];
+      if(value!==undefined && value!==null &&
+         !allAttributes[key].includes(String(value))){
+        allAttributes[key].push(String(value));
+      }
+    });
+  });
+
+  const keys=Object.keys(allAttributes);
+
+  const modal=document.createElement('div');
+  modal.id='skuModal';
+  modal.style.cssText=`
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.55);
+    z-index:99999;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+  `;
+
+  modal.innerHTML=`
+    <div style="
+      background:#fff;
+      width:min(520px,100%);
+      max-height:90vh;
+      overflow:auto;
+      border-radius:22px;
+      padding:22px;
+      direction:rtl;
+      box-shadow:0 20px 60px rgba(0,0,0,.25);
+    ">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px">
+        <strong style="font-size:20px">اختيارات المنتج</strong>
+        <button id="skuClose" style="
+          border:0;
+          background:#f1f1f1;
+          width:38px;
+          height:38px;
+          border-radius:50%;
+          font-size:22px;
+        ">×</button>
+      </div>
+
+      <div style="
+        font-size:15px;
+        color:#667085;
+        margin-bottom:18px;
+      ">${p.title || 'منتج من 1688'}</div>
+
+      <div id="skuOptions"></div>
+
+      <div style="
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        margin-top:20px;
+        padding:15px;
+        background:#f7f8fa;
+        border-radius:15px;
+      ">
+        <span>الكمية</span>
+
+        <div style="display:flex;align-items:center;gap:12px">
+          <button id="qtyMinus" style="
+            width:36px;height:36px;border:0;border-radius:10px;
+            background:#111827;color:#fff;font-size:20px;
+          ">−</button>
+
+          <strong id="skuQty">1</strong>
+
+          <button id="qtyPlus" style="
+            width:36px;height:36px;border:0;border-radius:10px;
+            background:#111827;color:#fff;font-size:20px;
+          ">+</button>
+        </div>
+      </div>
+
+      <div style="
+        margin-top:18px;
+        padding:15px;
+        border:1px solid #e5e7eb;
+        border-radius:15px;
+      ">
+        <div style="color:#667085">سعر القطعة</div>
+        <strong id="skuPrice" style="font-size:24px">
+          ${p.yuan.toFixed(2)} ¥
+        </strong>
+      </div>
+
+      <button id="confirmSku" style="
+        width:100%;
+        margin-top:18px;
+        padding:15px;
+        border:0;
+        border-radius:14px;
+        background:#111827;
+        color:#fff;
+        font-size:17px;
+        font-weight:700;
+      ">أضف للسلة</button>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const optionsEl=modal.querySelector('#skuOptions');
+
+  function renderOptions(){
+    optionsEl.innerHTML='';
+
+    keys.forEach(key=>{
+      const box=document.createElement('div');
+      box.style.marginBottom='18px';
+
+      box.innerHTML=`
+        <div style="font-weight:700;margin-bottom:9px">
+          ${key}
+        </div>
+        <div style="
+          display:flex;
+          flex-wrap:wrap;
+          gap:8px;
+        ">
+          ${allAttributes[key].map(value=>`
+            <button
+              type="button"
+              data-key="${encodeURIComponent(key)}"
+              data-value="${encodeURIComponent(value)}"
+              style="
+                border:1px solid #d0d5dd;
+                background:#fff;
+                padding:9px 14px;
+                border-radius:10px;
+                font-size:14px;
+              "
+            >${value}</button>
+          `).join('')}
+        </div>
+      `;
+
+      optionsEl.appendChild(box);
+    });
+
+    optionsEl.querySelectorAll('button').forEach(btn=>{
+      btn.onclick=()=>{
+        const key=decodeURIComponent(btn.dataset.key);
+        const value=decodeURIComponent(btn.dataset.value);
+
+        selected[key]=value;
+
+        optionsEl.querySelectorAll(
+          `button[data-key="${btn.dataset.key}"]`
+        ).forEach(x=>{
+          x.style.background='#fff';
+          x.style.color='#111827';
+          x.style.borderColor='#d0d5dd';
+        });
+
+        btn.style.background='#111827';
+        btn.style.color='#fff';
+        btn.style.borderColor='#111827';
+
+        updateSku();
+      };
+    });
+  }
+
+  function findSku(){
+    return p.skus.find(sku=>{
+      const attrs=getSkuAttributes(sku);
+
+      return keys.every(key=>{
+        if(!selected[key])return true;
+        return String(attrs[key] ?? '')===String(selected[key]);
+      });
+    });
+  }
+
+  function updateSku(){
+    const sku=findSku();
+
+    if(sku){
+      const price=getSkuPrice(sku);
+      modal.querySelector('#skuPrice').textContent=
+        price.toFixed(2)+' ¥';
+    }
+  }
+
+  modal.querySelector('#skuMinus').onclick=()=>{};
+
+  modal.querySelector('#qtyMinus').onclick=()=>{
+    quantity=Math.max(1,quantity-1);
+    modal.querySelector('#skuQty').textContent=quantity;
+  };
+
+  modal.querySelector('#qtyPlus').onclick=()=>{
+    quantity++;
+    modal.querySelector('#skuQty').textContent=quantity;
+  };
+
+  modal.querySelector('#skuClose').onclick=()=>{
+    modal.remove();
+  };
+
+  modal.onclick=(e)=>{
+    if(e.target===modal)modal.remove();
+  };
+
+  modal.querySelector('#confirmSku').onclick=()=>{
+    const sku=findSku();
+
+    if(keys.length && !sku){
+      return alert('من فضلك اختر جميع الخيارات');
+    }
+
+    const unitYuan=sku ? getSkuPrice(sku) : p.yuan;
+
+    cart.push({
+      ...p,
+      quantity,
+      selectedSku:sku || null,
+      unitYuan
+    });
+
+    modal.remove();
+    renderCart();
+
+    alert('تمت إضافة المنتج للسلة');
+  };
+
+  renderOptions();
 }
-function removeCart(i){cart.splice(i,1);document.getElementById('cartCount').textContent=cart.length;renderCart()}
-function checkout(){if(!cart.length)return alert('السلة فارغة');alert('هذه نسخة التصميم التجريبية. في النسخة الحقيقية هنا يتم إنشاء طلب وإرساله إلى لوحة شركة السلة الذكية.')}
-function trackOrder(){document.getElementById('trackResult').innerHTML='<div class="track-msg">🔎 مثال تجريبي: سيتم ربط هذه الصفحة لاحقاً بنظام تتبع الطلبات الخاص بالشركة.</div>'}
+
+
+function openCart(){
+  document.getElementById('overlay').classList.add('show');
+}
+
+
+function closeCart(e){
+  if(!e || e.target.id==='overlay'){
+    document.getElementById('overlay').classList.remove('show');
+  }
+}
+
+
+function renderCart(){
+  const el=document.getElementById('cartItems');
+
+  if(!cart.length){
+    el.innerHTML='<p style="color:#667085">السلة فارغة.</p>';
+    document.getElementById('cartTotal').textContent='0 د.ل';
+    return;
+  }
+
+  el.innerHTML=cart.map((p,i)=>`
+    <div class="cart-row" style="
+      display:flex;
+      gap:12px;
+      align-items:center;
+      margin-bottom:12px;
+      padding-bottom:12px;
+      border-bottom:1px solid #eee;
+    ">
+      <div style="width:60px;height:60px;overflow:hidden;border-radius:10px">
+        ${p.icon || '📦'}
+      </div>
+
+      <div style="flex:1">
+        <strong>${p.title || 'منتج'}</strong>
+
+        <div style="color:#667085;font-size:13px;margin-top:4px">
+          الكمية: ${p.quantity || 1}
+        </div>
+
+        <div style="font-weight:700;margin-top:4px">
+          ${money((p.unitYuan || p.yuan || 0) * (p.quantity || 1))}
+        </div>
+      </div>
+
+      <button
+        onclick="removeCart(${i})"
+        style="
+          border:0;
+          background:#fee4e2;
+          color:#b42318;
+          border-radius:9px;
+          padding:8px 10px;
+        "
+      >حذف</button>
+    </div>
+  `).join('');
+
+  const total=cart.reduce(
+    (sum,p)=>
+      sum+(Number(p.unitYuan || p.yuan || 0)*(p.quantity || 1)),
+    0
+  );
+
+  document.getElementById('cartTotal').textContent=money(total);
+}
+
+
+function removeCart(i){
+  cart.splice(i,1);
+  renderCart();
+}
+
+
+function checkout(){
+  if(!cart.length){
+    return alert('السلة فارغة');
+  }
+
+  alert('تم تجهيز الطلب. الخطوة التالية هي تأكيد بيانات العميل.');
+}
+
+
+function trackOrder(){
+  document.getElementById('trackOrder').scrollIntoView({
+    behavior:'smooth'
+  });
+}
 renderProducts();
 
 let authMode='phone';
