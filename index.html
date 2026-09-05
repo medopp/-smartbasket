@@ -368,13 +368,42 @@ function renderCart(){
     return;
   }
 
-  el.innerHTML=cart.map((p,i)=>{
+  let attrs=p.skuAttrs||{};
 
-    let attrs=p.skuAttrs||{};
+let attrText=Object.entries(attrs)
+  .map(([k,v])=>{
+    let text=String(v);
 
-    let attrText=Object.entries(attrs)
-      .map(([k,v])=>`${k}: ${v}`)
-      .join(' | ');
+    const colors={
+      '蓝色':'أزرق',
+      '黑色':'أسود',
+      '白色':'أبيض',
+      '红色':'أحمر',
+      '绿色':'أخضر',
+      '黄色':'أصفر',
+      '粉色':'وردي',
+      '紫色':'بنفسجي',
+      '橙色':'برتقالي',
+      '棕色':'بني',
+      '米白色':'أوف وايت',
+      '浅蓝色':'أزرق فاتح',
+      '深蓝色':'أزرق غامق',
+      '浅灰色':'رمادي فاتح',
+      '深灰色':'رمادي غامق',
+      '酒红色':'عنابي',
+      '玫红色':'فوشيا',
+      '卡其色':'كاكي',
+      '土黄色':'أصفر ترابي',
+      '焦糖色':'كراميل',
+      '藏蓝色':'كحلي',
+      '均码':'مقاس موحد'
+    };
+
+    if(colors[text]) text=colors[text];
+
+    return `${k==='颜色'?'اللون':k==='尺寸'?'المقاس':k}: ${text}`;
+  })
+  .join(' | ');
 
     let options='';
 
