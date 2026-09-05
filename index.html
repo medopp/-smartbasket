@@ -303,45 +303,20 @@ try{
 
   const trData=await tr.json();
 
-  if(
-    trData.success &&
-    Array.isArray(trData.translated)
-  ){
+if(
+  trData.success &&
+  Array.isArray(trData.translated) &&
+  trData.translated[0]
+){
 
-    const map={};
+  const translated=
+    String(trData.translated[0]).trim();
 
-    uniqueTexts.forEach((text,i)=>{
-      map[text]=
-        trData.translated[i] || text;
-    });
-
-    translatedTitle=
-      map[data.title] ||
-      data.title ||
-      '';
-
-    translatedSkus=
-      originalSkus.map(s=>{
-
-        const translatedAttributes={};
-
-        Object.entries(s.attributes || {})
-          .forEach(([k,v])=>{
-
-            translatedAttributes[k]=
-              map[String(v)] ||
-              String(v);
-
-          });
-
-        return{
-          ...s,
-          translatedAttributes
-        };
-
-      });
-
+  if(/[\u0600-\u06FF]/.test(translated)){
+    translatedTitle=translated;
   }
+
+}
 
 }catch(e){
 
