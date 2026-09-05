@@ -58,58 +58,61 @@ export async function onRequest(context) {
 
     let translated = "";
 
-    // Google Translate
+    /*
+      MyMemory
+      mt=1 = استخدام الترجمة الآلية
+    */
     try {
       const url =
-        "https://translate.googleapis.com/translate_a/single" +
-        "?client=gtx" +
-        "&sl=auto" +
-        "&tl=ar" +
-        "&dt=t" +
-        "&q=" +
-        encodeURIComponent(text);
+        "https://api.mymemory.translated.net/get" +
+        "?q=" +
+        encodeURIComponent(text) +
+        "&langpair=zh-CN|ar" +
+        "&mt=1";
 
       const response = await fetch(url);
 
       if (response.ok) {
         const data = await response.json();
 
-        if (Array.isArray(data?.[0])) {
-          translated = data[0]
-            .map(item => item?.[0] || "")
-            .join("")
-            .trim();
+        const result =
+          data?.responseData?.translatedText;
+
+        if (
+          result &&
+          /[\u0600-\u06FF]/.test(result)
+        ) {
+          translated = String(result).trim();
         }
       }
     } catch (error) {
       translated = "";
     }
 
-    // MyMemory fallback
-    if (
-      !translated ||
-      !/[\u0600-\u06FF]/.test(translated)
-    ) {
+    /*
+      إذا لم تنجح الترجمة، نحاول Google
+    */
+    if (!translated) {
       try {
         const url =
-          "https://api.mymemory.translated.net/get" +
-          "?q=" +
-          encodeURIComponent(text) +
-          "&langpair=zh-CN|ar";
+          "https://translate.googleapis.com/translate_a/single" +
+          "?client=gtx" +
+          "&sl=zh-CN" +
+          "&tl=ar" +
+          "&dt=t" +
+          "&q=" +
+          encodeURIComponent(text);
 
         const response = await fetch(url);
 
         if (response.ok) {
           const data = await response.json();
 
-          const result =
-            data?.responseData?.translatedText;
-
-          if (
-            result &&
-            /[\u0600-\u06FF]/.test(result)
-          ) {
-            translated = result.trim();
+          if (Array.isArray(data?.[0])) {
+            translated = data[0]
+              .map(item => item?.[0] || "")
+              .join("")
+              .trim();
           }
         }
       } catch (error) {
@@ -117,8 +120,15 @@ export async function onRequest(context) {
       }
     }
 
-    if (!translated) {
-      translated = text;
+    /*
+      مهم:
+      الموقع لن يعرض النص الصيني إذا فشلت الترجمة.
+    */
+    if (
+      !translated ||
+      !/[\u0600-\u06FF]/.test(translated)
+    ) {
+      translated = "منتج من 1688";
     }
 
     return new Response(
