@@ -6,7 +6,101 @@ const cors = {
 
 export async function onRequest(context) {
   const { request } = context;
+if (request.method === "GET") {
 
+  const results = {};
+
+  // اختبار MyMemory
+  try {
+    const r = await fetch(
+      "https://api.mymemory.translated.net/get?q=" +
+      encodeURIComponent("女士包") +
+      "&langpair=zh-CN|ar&mt=1"
+    );
+
+    const data = await r.json();
+
+    results.mymemory = {
+      status: r.status,
+      translated:
+        data?.responseData?.translatedText || ""
+    };
+
+  } catch (e) {
+    results.mymemory = {
+      error: e?.message || String(e)
+    };
+  }
+
+
+  // اختبار Google
+  try {
+    const r = await fetch(
+      "https://translate.googleapis.com/translate_a/single" +
+      "?client=gtx&sl=zh&tl=ar&dt=t&q=" +
+      encodeURIComponent("女士包")
+    );
+
+    const data = await r.json();
+
+    results.google = {
+      status: r.status,
+      translated:
+        Array.isArray(data?.[0])
+          ? data[0].map(x => x?.[0] || "").join("")
+          : ""
+    };
+
+  } catch (e) {
+    results.google = {
+      error: e?.message || String(e)
+    };
+  }
+
+
+  // اختبار Argos
+  try {
+    const r = await fetch(
+      "https://translate.argosopentech.com/translate",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          q: "女士包",
+          source: "zh",
+          target: "ar"
+        })
+      }
+    );
+
+    const data = await r.json();
+
+    results.argos = {
+      status: r.status,
+      translated:
+        data?.translatedText || ""
+    };
+
+  } catch (e) {
+    results.argos = {
+      error: e?.message || String(e)
+    };
+  }
+
+
+  return new Response(
+    JSON.stringify(results, null, 2),
+    {
+      status: 200,
+      headers: {
+        ...cors,
+        "Content-Type": "application/json"
+      }
+    }
+  );
+}
   if (request.method === "OPTIONS") {
     return new Response(null, {
       status: 204,
