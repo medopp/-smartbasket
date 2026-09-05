@@ -6,11 +6,10 @@ const cors = {
 
 export async function onRequest(context) {
   const { request } = context;
-if (request.method === "GET") {
+  if (request.method === "GET") {
 
   const results = {};
 
-  // اختبار MyMemory
   try {
     const r = await fetch(
       "https://api.mymemory.translated.net/get?q=" +
@@ -32,8 +31,6 @@ if (request.method === "GET") {
     };
   }
 
-
-  // اختبار Google
   try {
     const r = await fetch(
       "https://translate.googleapis.com/translate_a/single" +
@@ -57,8 +54,6 @@ if (request.method === "GET") {
     };
   }
 
-
-  // اختبار Argos
   try {
     const r = await fetch(
       "https://translate.argosopentech.com/translate",
@@ -89,7 +84,6 @@ if (request.method === "GET") {
     };
   }
 
-
   return new Response(
     JSON.stringify(results, null, 2),
     {
@@ -101,6 +95,7 @@ if (request.method === "GET") {
     }
   );
 }
+
   if (request.method === "OPTIONS") {
     return new Response(null, {
       status: 204,
