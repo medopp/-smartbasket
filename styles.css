@@ -288,3 +288,51 @@
   font-size:15px !important;
   font-weight:700 !important;
 }
+/* إصلاح نهائي لبطاقات المنتجات */
+.sb-product{
+  display:flex !important;
+  flex-direction:column !important;
+  position:relative !important;
+  height:auto !important;
+  min-height:0 !important;
+  overflow:hidden !important;
+}
+
+.sb-image{
+  position:relative !important;
+  display:block !important;
+  width:100% !important;
+  height:280px !important;
+  min-height:280px !important;
+  max-height:280px !important;
+  flex:0 0 280px !important;
+  overflow:hidden !important;
+}
+
+.sb-image img{
+  position:static !important;
+  display:block !important;
+  width:100% !important;
+  height:100% !important;
+  object-fit:cover !important;
+}
+
+.sb-info{
+  position:relative !important;
+  display:block !important;
+  width:100% !important;
+  height:auto !important;
+  min-height:0 !important;
+  padding:14px !important;
+  background:#fff !important;
+  transform:none !important;
+}
+
+.sb-source,
+.sb-title,
+.sb-price,
+.sb-yuan,
+.sb-add{
+  position:static !important;
+  transform:none !important;
+}
