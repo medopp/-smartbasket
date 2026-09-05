@@ -18,13 +18,21 @@ function renderProducts(list=products){
  let arr=[...list];
  if(sort==='price')arr.sort((a,b)=>a.yuan-b.yuan);
  document.getElementById('productGrid').innerHTML=arr.map(p=>`
- <article class="card">
-  <div class="pic">${p.icon}</div><div class="card-body">
-   <span class="source">${p.source}</span><h3>${p.title}</h3>
-   <div class="price">${money(p.yuan)}</div><div class="yuan">¥${p.yuan} قبل التحويل</div>
-   <button class="add" onclick="addCart(${p.id})">+ أضف للسلة</button>
+<article class="card">
+  <div class="pic">${p.icon}</div>
+
+  <div class="card-body">
+    <span class="source">${p.source}</span>
+    <h3>${p.title}</h3>
+
+    <div class="price">${money(p.yuan)}</div>
+    <div class="yuan">قبل التحويل ¥${p.yuan}</div>
+
+    <button class="add" onclick="addCart(${p.id})">
+      + أضف للسلة
+    </button>
   </div>
- </article>`).join('');
+</article>`).join('');
 }
 
 function updateRate(){
