@@ -407,40 +407,108 @@ function renderCart(){
   }
 
   el.innerHTML=cart.map((p,i)=>{
+
     let attrs=p.skuAttrs||{};
+
     let attrText=Object.entries(attrs)
-      .map(([k,v])=>`${k}: ${v}`)
+      .map(([k,v])=>{
+        let translated=v;
+
+        if(p.sku && p.sku.translatedAttributes){
+          translated=p.sku.translatedAttributes[k] || v;
+        }
+
+        return `${k}: ${translated}`;
+      })
       .join(' | ');
 
     let options='';
-    if(Array.isArray(p.skus)&&p.skus.length){
+
+    if(Array.isArray(p.skus) && p.skus.length){
+
       let vals=p.skus.map(s=>JSON.stringify(s.attributes||{}));
       let unique=[...new Set(vals)];
 
-      options=`<select onchange="changeSku(${i},this.value)" style="width:100%;padding:8px;margin-top:8px">
-        ${unique.map(v=>`<option value='${v}' ${v===JSON.stringify(attrs)?'selected':''}>
-          ${Object.entries(JSON.parse(v)).map(([k,x])=>`${k}: ${x}`).join(' | ')}
-        </option>`).join('')}
-      </select>`;
+      options=`
+        <select
+          onchange="changeSku(${i},this.value)"
+          style="width:100%;padding:8px;margin-top:8px"
+        >
+          ${unique.map(v=>{
+
+            let originalAttrs=JSON.parse(v);
+
+            let selectedSku=p.skus.find(
+              s=>JSON.stringify(s.attributes||{})===v
+            );
+
+            let displayText=Object.entries(originalAttrs)
+              .map(([k,x])=>{
+                let translated=x;
+
+                if(selectedSku && selectedSku.translatedAttributes){
+                  translated=
+                    selectedSku.translatedAttributes[k] || x;
+                }
+
+                return `${k}: ${translated}`;
+              })
+              .join(' | ');
+
+            return `
+              <option
+                value='${v}'
+                ${v===JSON.stringify(attrs)?'selected':''}
+              >
+                ${displayText}
+              </option>
+            `;
+
+          }).join('')}
+        </select>
+      `;
     }
 
     let total=(skuPrice(p)*p.qty);
 
-    return `<div class="cart-row">
-      <div class="thumb">${p.icon}</div>
-      <div class="grow">
-        <b>${p.title}</b>
-        <div style="margin-top:5px">${attrText}</div>
-        ${options}
-        <div style="margin-top:8px;font-weight:bold">${money(total)}</div>
-        <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
-          <button onclick="changeQty(${i},-1)">−</button>
-          <b>${p.qty}</b>
-          <button onclick="changeQty(${i},1)">+</button>
-          <button onclick="removeCart(${i})">حذف</button>
+    return `
+      <div class="cart-row">
+
+        <div class="thumb">
+          ${p.icon}
         </div>
+
+        <div class="grow">
+
+          <b>${p.title}</b>
+
+          <div style="margin-top:5px">
+            ${attrText}
+          </div>
+
+          ${options}
+
+          <div style="margin-top:8px;font-weight:bold">
+            ${money(total)}
+          </div>
+
+          <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+
+            <button onclick="changeQty(${i},-1)">−</button>
+
+            <b>${p.qty}</b>
+
+            <button onclick="changeQty(${i},1)">+</button>
+
+            <button onclick="removeCart(${i})">حذف</button>
+
+          </div>
+
+        </div>
+
       </div>
-    </div>`;
+    `;
+
   }).join('');
 
   document.getElementById('cartTotal').textContent=
