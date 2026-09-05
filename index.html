@@ -272,8 +272,10 @@ async function searchProducts(){
         : '📦',
       source:'1688',
       title:data.title || 'منتج من 1688',
-      yuan:Number(data.price) || 0
-    };
+  yuan:Number(data.price) || 0,
+skus:Array.isArray(data.raw?.skus)
+  ? data.raw.skus
+  : (Array.isArray(data.skus) ? data.skus : [])
 
     products=[product];
 
