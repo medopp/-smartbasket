@@ -264,16 +264,63 @@ async function searchProducts(){
     if(!response.ok || !data.success){
       throw new Error(data.error || 'تعذر جلب بيانات المنتج');
     }
+let translatedTitle = data.title || '';
+let translatedSkus = Array.isArray(data.raw?.skus)
+  ? data.raw.skus.map(s => ({
+      ...s,
+      attributes: s.attributes || {}
+    }))
+  : [];
 
+try {
+  const texts = [
+    data.title || '',
+    ...translatedSkus.flatMap(s =>
+      Object.values(s.attributes || {}).map(v => String(v))
+    )
+  ].filter(Boolean);
+
+  const tr = await fetch('/api/translate', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ texts })
+  });
+
+  const trData = await tr.json();
+
+  if (trData.success && Array.isArray(trData.translated)) {
+    translatedTitle = trData.translated[0] || translatedTitle;
+
+    let index = 1;
+
+    translatedSkus = translatedSkus.map(s => {
+      const attrs = {};
+
+      for (const key of Object.keys(s.attributes || {})) {
+        attrs[key] = trData.translated[index] || s.attributes[key];
+        index++;
+      }
+
+      return {
+        ...s,
+        translatedAttributes: attrs
+      };
+    });
+  }
+} catch (e) {
+  console.log('Translation skipped:', e);
+}
     const product={
       id:data.offer_id,
       icon:data.images && data.images.length
       ? `<img src="/api/image?url=${encodeURIComponent(data.images[0])}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`
         : '📦',
       source:'1688',
-      title:data.title || 'منتج من 1688',
+title:translatedTitle || data.title || '1688 من منتج',
 yuan:Number(data.price) || 0,
-skus:Array.isArray(data.raw?.skus) ? data.raw.skus : []
+skusskus:translatedSkus,
     };
 
     products=[product];
