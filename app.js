@@ -79,7 +79,60 @@ function renderCart(){
  document.getElementById('cartTotal').textContent=money(cart.reduce((s,p)=>s+p.yuan,0));
 }
 function removeCart(i){cart.splice(i,1);document.getElementById('cartCount').textContent=cart.length;renderCart()}
-function checkout(){if(!cart.length)return alert('السلة فارغة');alert('هذه نسخة التصميم التجريبية. في النسخة الحقيقية هنا يتم إنشاء طلب وإرساله إلى لوحة شركة السلة الذكية.')}
+async function checkout(){
+  if(!cart.length)return alert('السلة فارغة');
+
+  try{
+    const {data:{user},error:authError}=await supabaseClient.auth.getUser();
+
+    if(authError||!user){
+      return alert('يرجى تسجيل الدخول أولاً');
+    }
+
+    const totalCny=cart.reduce((sum,p)=>
+      sum+(Number(p.yuan)||0)*(Number(p.qty)||1),0);
+
+    const {data:order,error:orderError}=await supabaseClient
+      .from('orders')
+      .insert({
+        customer_id:user.id,
+        status:'pending',
+        total_cny:totalCny,
+        shipping_cost:0,
+        commission:0
+      })
+      .select()
+      .single();
+
+    if(orderError)throw orderError;
+
+    const items=cart.map(p=>({
+      order_id:order.id,
+      source:p.source||'1688',
+      product_id:String(p.id||''),
+      product_name:p.title||'منتج',
+      product_url:p.url||'',
+      quantity:Number(p.qty)||1,
+      price_cny:Number(p.yuan)||0
+    }));
+
+    const {error:itemsError}=await supabaseClient
+      .from('order_items')
+      .insert(items);
+
+    if(itemsError)throw itemsError;
+
+    alert('تم إنشاء الطلب بنجاح ✅');
+
+    cart=[];
+    renderCart();
+    closeCart();
+
+  }catch(error){
+    console.error(error);
+    alert('تعذر إنشاء الطلب، حاول مرة أخرى');
+  }
+}
 function trackOrder(){document.getElementById('trackResult').innerHTML='<div class="track-msg">🔎 مثال تجريبي: سيتم ربط هذه الصفحة لاحقاً بنظام تتبع الطلبات الخاص بالشركة.</div>'}
 renderProducts();
 
