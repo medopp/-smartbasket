@@ -93,19 +93,101 @@ function setAuthMode(mode){
  document.getElementById('phoneTab').classList.toggle('active',mode==='phone');
  document.getElementById('emailTab').classList.toggle('active',mode==='email');
 }
-function sendCode(){
- const value=authMode==='phone'?document.getElementById('phoneInput').value.trim():document.getElementById('emailInput').value.trim();
- if(!value)return alert('اكتب رقم الهاتف أو البريد الإلكتروني أولاً.');
- document.getElementById('otpArea').style.display='block';
- alert('في النسخة التجريبية تم فتح خانة رمز التحقق. عند الربط الحقيقي سيتم إرسال OTP عبر SMS أو البريد.');
+async function sendCode(){
+  const value =
+    authMode === 'phone'
+      ? document.getElementById('phoneInput').value.trim()
+      : document.getElementById('emailInput').value.trim();
+
+  if(!value){
+    return alert('أدخل رقم الهاتف أو البريد الإلكتروني أولاً');
+  }
+
+  try{
+    const options =
+      authMode === 'phone'
+        ? { phone: value }
+        : { email: value };
+
+    const { error } =
+      await supabaseClient.auth.signInWithOtp(options);
+
+    if(error){
+      return alert('تعذر إرسال رمز التحقق: ' + error.message);
+    }
+
+    document.getElementById('otpArea').style.display='block';
+
+    alert('تم إرسال رمز التحقق إليك');
+  }catch(error){
+    alert('حدث خطأ: ' + (error.message || error));
+  }
 }
-function verifyCode(){
- const otp=document.getElementById('otpInput').value.trim();
- if(otp.length!==6)return alert('اكتب رمز التحقق المكوّن من 6 أرقام.');
- localStorage.setItem('smartbasket_user','verified');
- closeAuth();
- document.querySelector('.account-btn').textContent='👤 حسابي';
- alert('تم تسجيل الدخول في النسخة التجريبية.');
+
+async function verifyCode(){
+  const otp =
+    document.getElementById('otpInput').value.trim();
+
+  const value =
+    authMode === 'phone'
+      ? document.getElementById('phoneInput').value.trim()
+      : document.getElementById('emailInput').value.trim();
+
+  if(!value){
+    return alert('أدخل رقم الهاتف أو البريد الإلكتروني أولاً');
+  }
+
+  if(!/^\d{6}$/.test(otp)){
+    return alert('رمز التحقق يجب أن يكون 6 أرقام');
+  }
+
+  try{
+    const result =
+      authMode === 'phone'
+        ? await supabaseClient.auth.verifyOtp({
+            phone: value,
+            token: otp,
+            type: 'sms'
+          })
+        : await supabaseClient.auth.verifyOtp({
+            email: value,
+            token: otp,
+            type: 'email'
+          });
+
+    if(result.error){
+      return alert('رمز التحقق غير صحيح: ' + result.error.message);
+    }
+
+    closeAuth();
+
+    const user = result.data.user;
+
+    const { data: customer } =
+      await supabaseClient
+        .from('customers')
+        .select('full_name, phone, email, customer_code')
+        .eq('id', user.id)
+        .single();
+
+    const code =
+      customer?.customer_code || 'LN-2001';
+
+    const btn =
+      document.querySelector('.account-btn');
+
+    if(btn){
+      btn.textContent = '👤 ' + code;
+    }
+
+    alert(
+      'تم تسجيل الدخول بنجاح\n' +
+      'كود العميل: ' + code
+    );
+
+  }catch(error){
+    alert('حدث خطأ أثناء التحقق: ' + (error.message || error));
+  }
 }
 
 function loadAdminSettings(){
