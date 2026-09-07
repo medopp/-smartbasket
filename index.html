@@ -246,7 +246,7 @@ async function searchProducts(){
     return alert('ضع رابط المنتج من 1688');
   }
 
-  if(!['1688.com','taobao.com','tmall.com','yangkeduo.com','pinduoduo.com'].some(domain=>q.includes(domain))){
+  if(!/^https?:\/\//i.test(q)){
     return alert('الصق رابط منتج من 1688 أو Taobao أو Pinduoduo');
   }
 
