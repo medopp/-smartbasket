@@ -158,23 +158,8 @@
     <span class="eyebrow">حساب السلة الذكية</span>
     <h2>سجّل دخولك أو أنشئ حساب</h2>
     <p>استخدم البريد الإلكتروني وكلمة المرور للدخول إلى حسابك.</p>
-    <div class="auth-tabs">
-      <button class="active" id="phoneTab" onclick="setPhoneAuthMode('register')">تسجيل جديد</button>
-      <button id="emailTab" onclick="setPhoneAuthMode('login')">تسجيل الدخول</button>
-    </div>
-    <div class="auth-field" style="display:none">
-      <label>الاسم الكامل</label>
-      <input id="fullNameInput" placeholder="اكتب اسمك الكامل" autocomplete="name">
-    </div>
-    <div id="phoneField" class="auth-field">
-      <label>رقم الهاتف</label>
-      <div class="phone-input"><span>+218</span><input id="phoneInput" placeholder="91 000 0000" inputmode="tel" autocomplete="tel"></div></div><div class="auth-field"><label>كلمة المرور</label><input id="passwordInputPhone" placeholder="كلمة المرور" type="password" autocomplete="current-password"></div>
-    <div id="emailField" class="auth-field" style="display:none">
-      <label>البريد الإلكتروني</label>
-      <input id="emailInput" placeholder="name@example.com" type="email" autocomplete="email"><label>كلمة المرور</label><input id="passwordInput" placeholder="اكتب كلمة المرور" type="password" autocomplete="current-password">
-    </div>
-    <button class="auth-main" onclick="phoneAuthContinue()">متابعة</button><button class="auth-main" type="button" onclick="sendPasswordReset()" style="background:#475467">نسيت كلمة المرور؟</button>
-    <small id="authStatus" class="auth-note">إذا نسيت كلمة المرور، نرسل رابطًا واحدًا لتعيين كلمة جديدة.</small>
+    <div class="auth-tabs"><button class="active" id="emailRegisterTab" onclick="setEmailAuthMode('register')">تسجيل جديد</button><button id="emailLoginTab" onclick="setEmailAuthMode('login')">تسجيل الدخول</button></div><div class="auth-field"><label>البريد الإلكتروني</label><input id="emailInput" placeholder="name@example.com" type="email" autocomplete="email"></div><div class="auth-field"><label>كلمة المرور</label><input id="passwordInput" placeholder="اكتب كلمة المرور" type="password" autocomplete="current-password"></div><button class="auth-main" onclick="emailAuthContinue()">متابعة</button><button class="auth-main" type="button" onclick="sendPasswordReset()" style="background:#475467">نسيت كلمة المرور؟</button>
+    <small id="authStatus" class="auth-note">استخدم بريدك الإلكتروني وكلمة المرور.</small>
     <div id="otpArea" style="display:none">
       <label>رمز التحقق</label>
       <input id="otpInput" class="otp-input" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
@@ -1036,8 +1021,6 @@ function updateAdminSummary(s){
  document.getElementById('summaryShipping').textContent=(s.normal||0).toFixed(2)+' $/KG';
  document.getElementById('summaryDate').textContent=new Date().toLocaleDateString('ar-LY');
 }
-loadAdminSettings();
-
-</script>
+loadAdminSettings();let emailAuthMode='register';function setEmailAuthMode(m){emailAuthMode=m;emailRegisterTab.classList.toggle('active',m==='register');emailLoginTab.classList.toggle('active',m==='login')}async function emailAuthContinue(){let email=emailInput.value.trim(),password=passwordInput.value;if(!email||!password)return alert('اكتب البريد الإلكتروني وكلمة المرور.');let r=emailAuthMode==='register'?await supabaseClient.auth.signUp({email,password,options:{emailRedirectTo:location.origin}}):await supabaseClient.auth.signInWithPassword({email,password});if(r.error)return setAuthStatus(r.error.message,true);if(emailAuthMode==='register'&&!r.data.session)return setAuthStatus('تم إنشاء الحساب. افتح بريدك الإلكتروني لتأكيده.');closeAuth();document.querySelector('.account-btn').textContent='👤 حسابي';}</script>
 </body>
 </html>
