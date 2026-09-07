@@ -191,13 +191,13 @@ let rate=parseFloat(localStorage.getItem('smartbasket_rate') || '0.82');
 document.getElementById('rateHero').textContent=rate.toFixed(2);
 let cart=[];
 let products=[
- {id:1,source:data.platform||'1688',title:'مصباح BMW F10 LED أمامي يمين',yuan:680,icon:'💡'},
+ {id:1,source:'1688',title:'مصباح BMW F10 LED أمامي يمين',yuan:680,icon:'💡'},
  {id:2,source:'Taobao',title:'مصابيح خلفية LED BMW F10',yuan:520,icon:'🚘'},
  {id:3,source:'Pinduoduo',title:'طقم أدوات صيانة للسيارات',yuan:188,icon:'🧰'},
- {id:4,source:data.platform||'1688',title:'حقيبة نسائية جلدية فاخرة',yuan:96,icon:'👜'},
+ {id:4,source:'1688',title:'حقيبة نسائية جلدية فاخرة',yuan:96,icon:'👜'},
  {id:5,source:'Taobao',title:'سماعات بلوتوث لاسلكية',yuan:129,icon:'🎧'},
  {id:6,source:'Pinduoduo',title:'إضاءة LED داخلية للسيارة',yuan:72,icon:'✨'},
- {id:7,source:data.platform||'1688',title:'شاحن سيارة سريع USB-C',yuan:45,icon:'🔌'},
+ {id:7,source:'1688',title:'شاحن سيارة سريع USB-C',yuan:45,icon:'🔌'},
  {id:8,source:'Taobao',title:'ساعة ذكية رياضية',yuan:158,icon:'⌚'}
 ];
 
@@ -316,9 +316,7 @@ const product={
     ? `<img src="/api/image?url=${encodeURIComponent(data.images[0])}">`
     : '📦',
 
-  source:data.platform||'1688',
-
-  title:
+  source:data.platform||'1688', title:
     translatedTitle ||
     data.title ||
     'منتج من 1688',
