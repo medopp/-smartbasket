@@ -158,23 +158,23 @@
     <span class="eyebrow">حساب السلة الذكية</span>
     <h2>سجّل دخولك أو أنشئ حساب</h2>
     <p>استخدم البريد الإلكتروني وكلمة المرور للدخول إلى حسابك.</p>
-    <div class="auth-tabs" style="display:none">
-      <button class="active" id="phoneTab" onclick="setAuthMode('phone')">رقم الهاتف</button>
-      <button id="emailTab" onclick="setAuthMode('email')">البريد الإلكتروني</button>
+    <div class="auth-tabs">
+      <button class="active" id="phoneTab" onclick="setPhoneAuthMode('register')">تسجيل جديد</button>
+      <button id="emailTab" onclick="setPhoneAuthMode('login')">تسجيل الدخول</button>
     </div>
     <div class="auth-field" style="display:none">
       <label>الاسم الكامل</label>
       <input id="fullNameInput" placeholder="اكتب اسمك الكامل" autocomplete="name">
     </div>
-    <div id="phoneField" class="auth-field" style="display:none">
+    <div id="phoneField" class="auth-field">
       <label>رقم الهاتف</label>
-      <div class="phone-input"><span>+218</span><input id="phoneInput" placeholder="91 000 0000" inputmode="tel" autocomplete="tel"></div>
+      <div class="phone-input"><span>+218</span><input id="phoneInput" placeholder="91 000 0000" inputmode="tel" autocomplete="tel"><label>كلمة المرور</label><input id="passwordInputPhone" placeholder="كلمة المرور" type="password" autocomplete="current-password"></div>
     </div>
-    <div id="emailField" class="auth-field">
+    <div id="emailField" class="auth-field" style="display:none">
       <label>البريد الإلكتروني</label>
       <input id="emailInput" placeholder="name@example.com" type="email" autocomplete="email"><label>كلمة المرور</label><input id="passwordInput" placeholder="اكتب كلمة المرور" type="password" autocomplete="current-password">
     </div>
-    <button class="auth-main" onclick="signInWithPassword()">تسجيل الدخول</button><button class="auth-main" type="button" onclick="sendPasswordReset()" style="background:#475467">نسيت كلمة المرور؟</button>
+    <button class="auth-main" onclick="phoneAuthContinue()">متابعة</button><button class="auth-main" type="button" onclick="sendPasswordReset()" style="background:#475467">نسيت كلمة المرور؟</button>
     <small id="authStatus" class="auth-note">إذا نسيت كلمة المرور، نرسل رابطًا واحدًا لتعيين كلمة جديدة.</small>
     <div id="otpArea" style="display:none">
       <label>رمز التحقق</label>
@@ -943,7 +943,7 @@ function setAuthMode(mode){
  document.getElementById('otpArea').style.display='none';
  document.getElementById('authStatus').textContent='سيتم إرسال رمز حقيقي عبر '+(mode==='phone'?'SMS':'البريد الإلكتروني')+'.';
 }
-async function signInWithPassword(){const email=document.getElementById('emailInput').value.trim().toLowerCase();const password=document.getElementById('passwordInput').value;if(!email||!password)return alert('اكتب البريد الإلكتروني وكلمة المرور.');setAuthStatus('جاري تسجيل الدخول...');try{const {error}=await supabaseClient.auth.signInWithPassword({email,password});if(error)throw error;closeAuth();document.querySelector('.account-btn').textContent='👤 حسابي';alert('تم تسجيل الدخول بنجاح.')}catch(err){setAuthStatus('البريد الإلكتروني أو كلمة المرور غير صحيحة.',true)}}async function sendPasswordReset(){const email=document.getElementById('emailInput').value.trim().toLowerCase();if(!email)return alert('اكتب بريدك الإلكتروني أولاً.');setAuthStatus('جاري إرسال رابط تعيين كلمة المرور...');try{const {error}=await supabaseClient.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin});if(error)throw error;setAuthStatus('أرسلنا رابطًا لتعيين كلمة مرور جديدة.')}catch(err){setAuthStatus(err.message||'تعذر إرسال الرابط. حاول لاحقًا.',true)}}function normalizedPhone(){
+async function signInWithPassword(){const email=document.getElementById('emailInput').value.trim().toLowerCase();const password=document.getElementById('passwordInput').value;if(!email||!password)return alert('اكتب البريد الإلكتروني وكلمة المرور.');setAuthStatus('جاري تسجيل الدخول...');try{const {error}=await supabaseClient.auth.signInWithPassword({email,password});if(error)throw error;closeAuth();document.querySelector('.account-btn').textContent='👤 حسابي';alert('تم تسجيل الدخول بنجاح.')}catch(err){setAuthStatus('البريد الإلكتروني أو كلمة المرور غير صحيحة.',true)}}async function sendPasswordReset(){const email=document.getElementById('emailInput').value.trim().toLowerCase();if(!email)return alert('اكتب بريدك الإلكتروني أولاً.');setAuthStatus('جاري إرسال رابط تعيين كلمة المرور...');try{const {error}=await supabaseClient.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin});if(error)throw error;setAuthStatus('أرسلنا رابطًا لتعيين كلمة مرور جديدة.')}catch(err){setAuthStatus(err.message||'تعذر إرسال الرابط. حاول لاحقًا.',true)}}let phoneAuthMode='register';function setPhoneAuthMode(mode){phoneAuthMode=mode;document.getElementById('phoneTab').classList.toggle('active',mode==='register');document.getElementById('emailTab').classList.toggle('active',mode==='login');document.getElementById('otpArea').style.display='none';document.getElementById('authStatus').textContent=mode==='register'?'أول تسجيل فقط: نرسل رمز SMS لتأكيد رقمك.':'اكتب رقم الهاتف وكلمة المرور للدخول.';}async function phoneAuthContinue(){const phone=normalizedPhone(),password=document.getElementById('passwordInputPhone').value;if(!phone||!password)return alert('اكتب رقم الهاتف وكلمة المرور.');if(phoneAuthMode==='login'){const {error}=await supabaseClient.auth.signInWithPassword({phone,password});if(error)return setAuthStatus('رقم الهاتف أو كلمة المرور غير صحيحة.',true);closeAuth();return;}pendingAuthValue=phone;window.phonePendingPassword=password;const {error}=await supabaseClient.auth.signInWithOtp({phone});if(error)return setAuthStatus(error.message||'تعذر إرسال SMS.',true);document.getElementById('otpArea').style.display='block';setAuthStatus('تم إرسال رمز SMS. اكتب الرمز لتأكيد الحساب.');}function normalizedPhone(){
  const raw=document.getElementById('phoneInput').value.replace(/\D/g,'');
  return raw ? '+218'+raw.replace(/^218/,'') : '';
 }
@@ -977,7 +977,7 @@ async function verifyCode(){
    const verifyPayload=authMode==='phone'?{phone:pendingAuthValue,token:otp,type:'sms'}:{email:pendingAuthValue,token:otp,type:'email'};
    const {data,error}=await supabaseClient.auth.verifyOtp(verifyPayload);
    if(error) throw error;
-   const user=data.user;
+   if(phoneAuthMode==='register'&&window.phonePendingPassword){const {error:passwordError}=await supabaseClient.auth.updateUser({password:window.phonePendingPassword});if(passwordError)throw passwordError;}const user=data.user;
    if(!user) throw new Error('لم يتم العثور على المستخدم بعد التحقق.');
    const customer={id:user.id,full_name:pendingAuthName,phone:user.phone||null,email:user.email||null};
    const {error:customerError}=await supabaseClient.from('customers').upsert(customer,{onConflict:'id'});
