@@ -240,7 +240,7 @@ function updateRate(){
 }
 
 async function searchProducts(){
-  const q=document.getElementById('searchInput').value.trim();
+  const pastedText=document.getElementById('searchInput').value.trim();let q=((pastedText.match(/(?:https?:\/\/|www\.)[^\s<>"'،]+/i)||[])[0]||pastedText).replace(/[)\]}>.,؛،]+$/,'');if(q.startsWith('www.'))q='https://'+q;
 
   if(!q){
     return alert('ضع رابط المنتج من 1688');
