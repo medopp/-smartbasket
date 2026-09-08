@@ -1023,3 +1023,5 @@ loadAdminSettings();let emailAuthMode='register';function setEmailAuthMode(m){em
 <div class="head-actions"><button class="account-btn" onclick="openAuth()">👤 تسجيل الدخول</button><button id="logoutBtn" class="account-btn" style="display:none" onclick="signOut()">تسجيل الخروج</button><button class="cart-btn" onclick="openCart()">🛒 السلة <span id="cartCount">0</span></button></div>
 </html>
 <script>f=document.createElement('input');f.type='file';f.accept='image/*';f.hidden=1;b=document.createElement('button');b.type='button';b.textContent='QR image';b.onclick=()=>f.click();f.onchange=async()=>{try{i=await createImageBitmap(f.files[0]);c=document.createElement('canvas');c.width=i.width;c.height=i.height;c.getContext('2d').drawImage(i,0,0);v=(await new BarcodeDetector({formats:['qr_code']}).detect(c))[0].rawValue;document.getElementById('searchInput').value=v}catch(e){alert('QR error')}};document.querySelector('.searchbox').after(b,f)</script></script>
+
+<script src=customer-access.js></script>
