@@ -102,7 +102,7 @@ export async function onRequest(context) {
     // 2. إذا كان رابط QR مختصر، نحاول فك التحويل
     // --------------------------------------------------
 
-    if (!offerId) {
+    if (!offerId && host !== "qr.1688.com" && host !== "s.1688.com") {
       try {
         const shortResponse = await fetch(productUrl, {
           method: "GET",
@@ -163,7 +163,7 @@ export async function onRequest(context) {
     // 4. محاولة ثانية باستخدام redirect follow
     // --------------------------------------------------
 
-    if (!offerId) {
+    if (!offerId && host !== "qr.1688.com" && host !== "s.1688.com") {
       try {
         const resolved = await fetch(productUrl, {
           method: "GET",
