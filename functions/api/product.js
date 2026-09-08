@@ -35,7 +35,7 @@ export async function onRequest(context) {
     let productUrl = urlMatch[0]
       .replace(/[)\]}>，。；;]+$/g, "");
 
-    let resolvedProductUrl = productUrl;     try {       const shortHost = new URL(productUrl).hostname.toLowerCase();       if (shortHost.endsWith("tb.cn") || shortHost === "qr.1688.com" || shortHost === "s.1688.com") {         const redirectResponse = await fetch(productUrl, {           redirect: "follow",           headers: { "User-Agent": "Mozilla/5.0" }         });         if (redirectResponse.url) resolvedProductUrl = redirectResponse.url;       }     } catch {}     productUrl = resolvedProductUrl;      let parsedUrl;
+    let resolvedProductUrl = productUrl;     try {       const shortHost = new URL(productUrl).hostname.toLowerCase();       if (shortHost.endsWith("tb.cn") || false) {         const redirectResponse = await fetch(productUrl, {           redirect: "follow",           headers: { "User-Agent": "Mozilla/5.0" }         });         if (redirectResponse.url) resolvedProductUrl = redirectResponse.url;       }     } catch {}     productUrl = resolvedProductUrl;      let parsedUrl;
 
     try {
       parsedUrl = new URL(productUrl);
