@@ -190,17 +190,8 @@ export async function onRequest(context) {
     // 5. إذا فشل استخراج رقم المنتج
     // --------------------------------------------------
 
-    if (!offerId) {
-      return Response.json(
-        {
-          success: false,
-          error:
-            "لم نتمكن من استخراج رقم منتج 1688 من الرابط المختصر",
-          url: productUrl
-        },
-        { status: 400, headers: cors }
-      );
-    }
+    // تمرير رابط QR للخدمة كحل أخير؛ الخدمة تقبل رابط المنتج الكامل أيضاً.
+    const parseInput = offerId || productUrl;
 
     // --------------------------------------------------
     // 6. Parse API
@@ -222,7 +213,7 @@ export async function onRequest(context) {
     const parseUrl =
       "https://api.parse.bot/scraper/bce3cd9b-591a-4e87-a406-6e57ab0dd092/get_product_details" +
       "?offer_id=" +
-      encodeURIComponent(offerId);
+      encodeURIComponent(parseInput);
 
     const parseResponse = await fetch(parseUrl, {
       method: "GET",
@@ -251,7 +242,7 @@ export async function onRequest(context) {
       {
         success: true,
         platform: "1688",
-        offer_id: offerId,
+        offer_id: offerId || "",
         source_url: productUrl,
 
         title: data.title || "",
