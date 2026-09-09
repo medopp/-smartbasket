@@ -1051,7 +1051,7 @@ loadAdminSettings();let emailAuthMode='register';function setEmailAuthMode(m){em
   window.sbCustomerLogin=async()=>{
     const code=String(document.getElementById('sbCustomerCode')?.value||'').trim().toUpperCase();
     const password=document.getElementById('sbCustomerPassword')?.value||'';
-    if(!/^[A-Z]{2,8}-\\d{3,10}$/.test(code))return sbSetStatus('sbAccessStatus','اكتب كوداً مثل LN-1010.',true);
+    if(!/^LN-\d+$/.test(code))return sbSetStatus('sbAccessStatus','اكتب كوداً مثل LN-1010.',true);
     if(!password)return sbSetStatus('sbAccessStatus','اكتب كلمة المرور.',true);
     sbSetStatus('sbAccessStatus','جاري تسجيل الدخول...');
     const {data,error}=await supabaseClient.auth.signInWithPassword({email:sbCustomerEmail(code),password});
@@ -1074,7 +1074,7 @@ loadAdminSettings();let emailAuthMode='register';function setEmailAuthMode(m){em
     const password=document.getElementById('sbNewCustomerPassword')?.value||'';
     const fullName=String(document.getElementById('sbNewCustomerName')?.value||'').trim();
     const phone=String(document.getElementById('sbNewCustomerPhone')?.value||'').trim();
-    if(!/^[A-Z]{2,8}-\\d{3,10}$/.test(code))return sbSetStatus('sbCustomerAdminStatus','اكتب كوداً مثل LN-1010.',true);
+    if(!/^LN-\d+$/.test(code))return sbSetStatus('sbCustomerAdminStatus','اكتب كوداً مثل LN-1010.',true);
     if(password.length<8)return sbSetStatus('sbCustomerAdminStatus','الرمز لازم يكون 8 أحرف أو أرقام على الأقل.',true);
     const {data:{session}}=await supabaseClient.auth.getSession();
     if(!session)return sbSetStatus('sbCustomerAdminStatus','سجّل دخول الشركة أولاً.',true);
