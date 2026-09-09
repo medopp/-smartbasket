@@ -31,7 +31,7 @@ export async function onRequest(context) {
 
     const { customerCode, password, fullName = "", phone = "" } = await context.request.json();
     const code = String(customerCode || "").trim().toUpperCase();
-    if (!/^[A-Z]{2,8}-\d{3,10}$/.test(code)) return reply({ error: "اكتب كوداً مثل LN-1010" }, 400);
+    if (!/^LN-\d+$/.test(code)) return reply({ error: "الكود يجب أن يبدأ بـ LN- ثم أرقام" }, 400);
     if (String(password || "").length < 8) return reply({ error: "كلمة المرور يجب أن تكون 8 أحرف أو أرقام على الأقل" }, 400);
 
     const created = await fetch(baseUrl + "/auth/v1/admin/users", {
