@@ -1023,3 +1023,91 @@ loadAdminSettings();let emailAuthMode='register';function setEmailAuthMode(m){em
 <div class="head-actions"><button class="account-btn" onclick="openAuth()">👤 تسجيل الدخول</button><button id="logoutBtn" class="account-btn" style="display:none" onclick="signOut()">تسجيل الخروج</button><button class="cart-btn" onclick="openCart()">🛒 السلة <span id="cartCount">0</span></button></div>
 </html>
 <script>f=document.createElement('input');f.type='file';f.accept='image/*';f.hidden=1;b=document.createElement('button');b.type='button';b.textContent='QR image';b.onclick=()=>f.click();f.onchange=async()=>{try{i=await createImageBitmap(f.files[0]);c=document.createElement('canvas');c.width=i.width;c.height=i.height;c.getContext('2d').drawImage(i,0,0);v=(await new BarcodeDetector({formats:['qr_code']}).detect(c))[0].rawValue;document.getElementById('searchInput').value=v}catch(e){alert('QR error')}};document.querySelector('.searchbox').after(b,f)</script></script>
+<script>
+(function(){
+  const sbAdminEmails=new Set(['jejohar@gmail.com','jejohaly@gmail.com']);
+  const sbCustomerEmail=code=>'customer-'+code.toLowerCase().replace(/[^a-z0-9]/g,'')+'@accounts.smartbasket.local';
+  const sbEscape=value=>String(value||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const sbSetStatus=(id,message,error)=>{const el=document.getElementById(id);if(el){el.textContent=message;el.style.color=error?'#b42318':'#667085';}};
+  const sbIsAdmin=user=>!!user&&(user.app_metadata?.role==='admin'||sbAdminEmails.has(String(user.email||'').toLowerCase()));
+  window.sbOpenAccess=kind=>{
+    const overlay=document.getElementById('authOverlay');
+    if(!overlay)return;
+    const company=kind==='company';
+    overlay.innerHTML='<div class="auth-modal" onclick="event.stopPropagation()">'+
+      '<button class="auth-close" onclick="closeAuth()">×</button>'+ 
+      '<div class="auth-logo">س</div>'+ 
+      '<span class="eyebrow">حساب السلة الذكية</span>'+ 
+      '<h2>'+ (company?'دخول الشركة':'دخول العميل') +'</h2>'+ 
+      '<p>'+ (company?'ادخل بريد الشركة وكلمة المرور لإدارة حسابات العملاء.':'ادخل الكود وكلمة المرور اللذين أعطتهما لك الشركة.') +'</p>'+ 
+      '<div class="auth-tabs"><button class="'+(!company?'active':'')+'" onclick="sbOpenAccess(\'customer\')">دخول العميل</button><button class="'+(company?'active':'')+'" onclick="sbOpenAccess(\'company\')">دخول الشركة</button></div>'+ 
+      (company?
+        '<div class="auth-field"><label>بريد الشركة</label><input id="sbCompanyEmail" type="email" autocomplete="email" placeholder="name@example.com"></div><div class="auth-field"><label>كلمة المرور</label><input id="sbCompanyPassword" type="password" autocomplete="current-password" placeholder="اكتب كلمة المرور"></div><button class="auth-main" onclick="sbCompanyLogin()">تسجيل الدخول</button><small id="sbAccessStatus" class="auth-note">دخول مخصص لحساب الشركة.</small>' :
+        '<div class="auth-field"><label>كود العميل</label><input id="sbCustomerCode" autocomplete="username" autocapitalize="characters" placeholder="مثال: LN-1010"></div><div class="auth-field"><label>كلمة المرور</label><input id="sbCustomerPassword" type="password" autocomplete="current-password" placeholder="اكتب كلمة المرور"></div><button class="auth-main" onclick="sbCustomerLogin()">تسجيل الدخول</button><small id="sbAccessStatus" class="auth-note">لا يمكن إنشاء حساب جديد من هنا.</small>')+
+      '</div>';
+    overlay.classList.add('open');
+  };
+  window.openAuth=()=>sbOpenAccess('customer');
+  window.sbCustomerLogin=async()=>{
+    const code=String(document.getElementById('sbCustomerCode')?.value||'').trim().toUpperCase();
+    const password=document.getElementById('sbCustomerPassword')?.value||'';
+    if(!/^[A-Z]{2,8}-\\d{3,10}$/.test(code))return sbSetStatus('sbAccessStatus','اكتب كوداً مثل LN-1010.',true);
+    if(!password)return sbSetStatus('sbAccessStatus','اكتب كلمة المرور.',true);
+    sbSetStatus('sbAccessStatus','جاري تسجيل الدخول...');
+    const {data,error}=await supabaseClient.auth.signInWithPassword({email:sbCustomerEmail(code),password});
+    if(error||!data.user)return sbSetStatus('sbAccessStatus','الكود أو كلمة المرور غير صحيحة.',true);
+    if(sbIsAdmin(data.user)){await supabaseClient.auth.signOut({scope:'local'});return sbSetStatus('sbAccessStatus','استخدم دخول الشركة لحساب الإدارة.',true);}
+    closeAuth();sbSyncAccess(data.user);
+  };
+  window.sbCompanyLogin=async()=>{
+    const email=String(document.getElementById('sbCompanyEmail')?.value||'').trim().toLowerCase();
+    const password=document.getElementById('sbCompanyPassword')?.value||'';
+    if(!email||!password)return sbSetStatus('sbAccessStatus','اكتب البريد وكلمة المرور.',true);
+    sbSetStatus('sbAccessStatus','جاري تسجيل الدخول...');
+    const {data,error}=await supabaseClient.auth.signInWithPassword({email,password});
+    if(error||!data.user)return sbSetStatus('sbAccessStatus','البريد أو كلمة المرور غير صحيحة.',true);
+    if(!sbIsAdmin(data.user)){await supabaseClient.auth.signOut({scope:'local'});return sbSetStatus('sbAccessStatus','هذا الحساب ليس حساب الشركة.',true);}
+    closeAuth();sbSyncAccess(data.user);document.getElementById('adminPanel')?.scrollIntoView({behavior:'smooth'});
+  };
+  window.sbCreateCustomer=async()=>{
+    const code=String(document.getElementById('sbNewCustomerCode')?.value||'').trim().toUpperCase();
+    const password=document.getElementById('sbNewCustomerPassword')?.value||'';
+    const fullName=String(document.getElementById('sbNewCustomerName')?.value||'').trim();
+    const phone=String(document.getElementById('sbNewCustomerPhone')?.value||'').trim();
+    if(!/^[A-Z]{2,8}-\\d{3,10}$/.test(code))return sbSetStatus('sbCustomerAdminStatus','اكتب كوداً مثل LN-1010.',true);
+    if(password.length<8)return sbSetStatus('sbCustomerAdminStatus','الرمز لازم يكون 8 أحرف أو أرقام على الأقل.',true);
+    const {data:{session}}=await supabaseClient.auth.getSession();
+    if(!session)return sbSetStatus('sbCustomerAdminStatus','سجّل دخول الشركة أولاً.',true);
+    sbSetStatus('sbCustomerAdminStatus','جاري إنشاء الحساب...');
+    try{
+      const response=await fetch('/api/admin/customers',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},body:JSON.stringify({customerCode:code,password,fullName,phone})});
+      const result=await response.json();
+      if(!response.ok||!result.success)throw new Error(result.error||'تعذر إنشاء الحساب');
+      sbSetStatus('sbCustomerAdminStatus','تم إنشاء العميل '+code+'. أعطِه الكود والرمز فقط.');
+      document.getElementById('sbNewCustomerCode').value='';document.getElementById('sbNewCustomerPassword').value='';document.getElementById('sbNewCustomerName').value='';document.getElementById('sbNewCustomerPhone').value='';
+    }catch(error){sbSetStatus('sbCustomerAdminStatus',error.message||'تعذر إنشاء الحساب.',true);}
+  };
+  function sbInstallCustomerAdmin(){
+    const panel=document.getElementById('adminPanel');
+    if(!panel||document.getElementById('sbCustomerAdmin'))return;
+    panel.insertAdjacentHTML('afterbegin','<section id="sbCustomerAdmin" class="admin-card" style="max-width:560px;margin:0 auto 24px"><div class="card-title"><span>👥</span><div><b>حسابات العملاء</b><small>الشركة فقط تنشئ الأكواد والرموز</small></div></div><div class="auth-field"><label>اسم العميل (اختياري)</label><input id="sbNewCustomerName" placeholder="اسم العميل"></div><div class="auth-field" style="margin-top:12px"><label>رقم الهاتف (اختياري)</label><input id="sbNewCustomerPhone" inputmode="tel" placeholder="09xxxxxxxx"></div><div class="auth-field" style="margin-top:12px"><label>كود العميل</label><input id="sbNewCustomerCode" autocapitalize="characters" placeholder="مثال: LN-1010"></div><div class="auth-field" style="margin-top:12px"><label>رمز الدخول</label><input id="sbNewCustomerPassword" type="password" minlength="8" placeholder="8 أحرف أو أرقام على الأقل"></div><button class="auth-main" onclick="sbCreateCustomer()">إنشاء حساب العميل</button><small id="sbCustomerAdminStatus" class="auth-note">بعد الإنشاء أعطِ الزبون الكود والرمز.</small></section>');
+  }
+  window.sbSyncAccess=user=>{
+    const button=document.querySelector('.account-btn');
+    const logout=document.getElementById('logoutBtn');
+    const admin=sbIsAdmin(user);
+    const panel=document.getElementById('adminPanel');
+    const ratePanel=document.getElementById('adminRate');
+    if(panel)panel.style.display=admin?'block':'none';
+    if(ratePanel)ratePanel.style.display=admin?'flex':'none';
+    if(user&&admin){sbInstallCustomerAdmin();if(button){button.textContent='لوحة الشركة';button.onclick=()=>document.getElementById('adminPanel')?.scrollIntoView({behavior:'smooth'});}}
+    else if(user){if(button){button.textContent='👤 حسابي';button.onclick=()=>alert('تم تسجيل دخولك بحساب العميل.');}}
+    else if(button){button.textContent='👤 تسجيل الدخول';button.onclick=()=>sbOpenAccess('customer');}
+    if(logout){logout.style.display=user?'inline-block':'none';logout.onclick=sbLogout;}
+  };
+  window.sbLogout=async()=>{await supabaseClient.auth.signOut({scope:'local'});sbSyncAccess(null);};
+  window.signOut=window.sbLogout;
+  supabaseClient.auth.onAuthStateChange((_event,session)=>{if(_event==='SIGNED_OUT')sbSyncAccess(null);else if(session?.user)sbSyncAccess(session.user);});
+  supabaseClient.auth.getUser().then(({data})=>sbSyncAccess(data?.user||null)).catch(()=>sbSyncAccess(null));
+})();
+</script>
