@@ -76,8 +76,9 @@ export async function handle(req,env){
    manager();const b=await body(req),trip=text(b.trip,64);
    if(trip==='لم تُحدد'||!['الصين','الإمارات','السعودية'].includes(b.country)||!['جوي','بحري'].includes(b.mode))fail(400,'اختر رحلة ودولة ونوع شحن صالحين.');
    if(!Number.isInteger(b.step)||b.step<0||b.step>4)fail(400,'حالة غير صالحة.');
+   if(b.date&&(!/^\d{4}-\d{2}-\d{2}$/.test(b.date)||Number.isNaN(Date.parse(b.date))))fail(400,'التاريخ غير صالح.');
    const query=new URLSearchParams({trip:'eq.'+trip,country:'eq.'+b.country,mode:'eq.'+b.mode});
-   const updated=await db('sb_shipments?'+query,'PATCH',{step:b.step});
+   const updated=await db('sb_shipments?'+query,'PATCH',{step:b.step,...(b.date?{ship_date:b.date}:{})});
    if(!updated.length)fail(404,'لا توجد شحنات في هذه الرحلة.');
    return json({ok:true,updatedCount:updated.length});
   }
