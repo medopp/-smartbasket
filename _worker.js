@@ -68,7 +68,9 @@ export async function handle(req,env){
    if(!['الصين','الإمارات','السعودية'].includes(b.country)||!['جوي','بحري'].includes(b.mode))fail(400,'الدولة أو نوع الشحن غير صالح.');
    const weight=Number(b.weight);if(!Number.isFinite(weight)||weight<=0||weight>100000||!['كجم','متر مكعب'].includes(b.unit))fail(400,'الوزن أو الحجم غير صالح.');
    if(b.date&&(!/^\d{4}-\d{2}-\d{2}$/.test(b.date)||Number.isNaN(Date.parse(b.date))))fail(400,'التاريخ غير صالح.');
-   await db('sb_shipments','POST',{id,customer_code:customer,country:b.country,mode:b.mode,weight,unit:b.unit,trip:text(b.trip||'لم تُحدد',64),ship_date:b.date||null});return json({ok:true},201);
+   const trip=text(b.trip||'لم تُحدد',64);
+   if(trip!=='لم تُحدد'){const existing=await db('sb_shipments?trip=eq.'+encodeURIComponent(trip)+'&country=eq.'+encodeURIComponent(b.country)+'&mode=eq.'+encodeURIComponent(b.mode));if(existing.some(s=>Number(s.step)>0))fail(400,'لا يمكن إضافة شحنة إلى رحلة غادرت المخزن.');}
+   await db('sb_shipments','POST',{id,customer_code:customer,country:b.country,mode:b.mode,weight,unit,trip,ship_date:b.date||null});return json({ok:true},201);
   }
   if(route==='/api/trips/status'&&method==='PATCH'){
    manager();const b=await body(req),trip=text(b.trip,64);
