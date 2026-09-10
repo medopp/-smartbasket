@@ -70,6 +70,15 @@ export async function handle(req,env){
    if(b.date&&(!/^\d{4}-\d{2}-\d{2}$/.test(b.date)||Number.isNaN(Date.parse(b.date))))fail(400,'التاريخ غير صالح.');
    await db('sb_shipments','POST',{id,customer_code:customer,country:b.country,mode:b.mode,weight,unit:b.unit,trip:text(b.trip||'لم تُحدد',64),ship_date:b.date||null});return json({ok:true},201);
   }
+  if(route==='/api/trips/status'&&method==='PATCH'){
+   manager();const b=await body(req),trip=text(b.trip,64);
+   if(trip==='لم تُحدد'||!['الصين','الإمارات','السعودية'].includes(b.country)||!['جوي','بحري'].includes(b.mode))fail(400,'اختر رحلة ودولة ونوع شحن صالحين.');
+   if(!Number.isInteger(b.step)||b.step<0||b.step>4)fail(400,'حالة غير صالحة.');
+   const query=new URLSearchParams({trip:'eq.'+trip,country:'eq.'+b.country,mode:'eq.'+b.mode});
+   const updated=await db('sb_shipments?'+query,'PATCH',{step:b.step});
+   if(!updated.length)fail(404,'لا توجد شحنات في هذه الرحلة.');
+   return json({ok:true,updatedCount:updated.length});
+  }
   const match=route.match(/^\/api\/shipments\/([A-Za-z0-9-]+)(\/photo)?$/);
   if(match){
    const [s]=await db('sb_shipments?id=eq.'+cleanCode(match[1]));
