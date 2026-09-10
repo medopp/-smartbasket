@@ -1,0 +1,13 @@
+{
+  "name": "smartbasket",
+  "pages_build_output_dir": ".",
+  "compatibility_date": "2026-09-04",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {"SUPABASE_URL": "https://vjosvemchqqwbpscjqfg.supabase.co"},
+  "r2_buckets": [{"binding": "SHIPMENT_PHOTOS", "bucket_name": "smartbasket-shipment-photos"}],
+  "env": {
+    "preview": {
+      "r2_buckets": [{"binding": "SHIPMENT_PHOTOS", "bucket_name": "smartbasket-shipment-photos"}]
+    }
+  }
+}
