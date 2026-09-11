@@ -43,7 +43,7 @@ function renderShipments(){
 
 function openCustomerTrip(group){
  const d=$('detail');
- d.innerHTML=`<div class="row"><h2>رحلة ${esc(group.trip)}</h2><button type="button" id="close-detail">إغلاق</button></div><p class="muted">${esc(group.country)} · ${esc(group.mode)} · ${group.rows.length} شحنة</p>${group.rows.map(s=>`<article class="shipment-summary"><div class="row"><h3 dir="ltr">${esc(s.id)}</h3><span class="badge">${esc(s.status)}</span></div><p>${esc(s.weight)} · الوصول المتوقع: ${esc(s.date)}</p><div class="progress"><span style="width:${s.step*25}%"></span></div></article>`).join('')}`;
+ d.innerHTML=`<div class="row"><h2>رحلة ${esc(group.trip)}</h2><button type="button" id="close-detail">إغلاق</button></div><p class="muted">${esc(group.country)} · ${esc(group.mode)} · ${group.rows.length} شحنة</p>${group.rows.map(s=>`<article class="shipment-summary"><div class="row"><h3 dir="ltr">${esc(s.id)}</h3><span class="badge">${esc(s.status)}</span></div><p>${esc(s.weight)} · الوصول المتوقع: ${esc(s.date)}</p>${photo(s)}<div class="progress"><span style="width:${s.step*25}%"></span></div></article>`).join('')}`;
  d.querySelector('#close-detail').onclick=()=>d.close();d.showModal();
 }
 
