@@ -44,7 +44,7 @@ function shipmentValues(db,b,old){
   const trip=tripValue==='لم تُحدد'?'لم تُحدد':cleanCode(tripValue);
   const step=b.step===undefined?old?.step:b.step;
   if(!countries.includes(country)||!modes.includes(mode))fail(400,'الدولة أو نوع الشحن غير صالح.');
-  if(!Number.isFinite(weight)||weight<=0||weight>100000||!['كجم','متر مكعب'].includes(unit))fail(400,'الوزن أو الحجم غير صالح.');
+   if(!Number.isFinite(weight)||weight<=0||!['كجم','متر مكعب'].includes(unit))fail(400,'الوزن أو الحجم غير صالح.');
   if(step!==undefined&&(!Number.isInteger(step)||step<0||step>4))fail(400,'حالة غير صالحة.');
   const [customerRow]=await db('sb_accounts?code=eq.'+encodeURIComponent(customer)+'&role=eq.customer');
   if(!customerRow)fail(400,'اختر زبونًا صحيحًا.');
