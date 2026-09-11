@@ -42,8 +42,10 @@ function shipmentValues(db,b,old){
   const unit=b.unit===undefined?(old?.unit||''):b.unit;
   const tripValue=b.trip===undefined?(old?.trip||'لم تُحدد'):b.trip;
   const trip=tripValue==='لم تُحدد'?'لم تُحدد':cleanCode(tripValue);
+  const step=b.step===undefined?old?.step:b.step;
   if(!countries.includes(country)||!modes.includes(mode))fail(400,'الدولة أو نوع الشحن غير صالح.');
   if(!Number.isFinite(weight)||weight<=0||weight>100000||!['كجم','متر مكعب'].includes(unit))fail(400,'الوزن أو الحجم غير صالح.');
+  if(step!==undefined&&(!Number.isInteger(step)||step<0||step>4))fail(400,'حالة غير صالحة.');
   const [customerRow]=await db('sb_accounts?code=eq.'+encodeURIComponent(customer)+'&role=eq.customer');
   if(!customerRow)fail(400,'اختر زبونًا صحيحًا.');
   let shipDate=b.date===undefined?(old?.ship_date||null):validDate(b.date);
@@ -53,7 +55,7 @@ function shipmentValues(db,b,old){
    if(Number(tripRow.step)>0&&(!old||old.trip!==trip))fail(400,'لا يمكن إضافة شحنة إلى رحلة غادرت المخزن.');
    shipDate=tripRow.arrival_date||null;
   }
-  return {id,customer_code:customer,country,mode,weight,unit,trip,ship_date:shipDate};
+  return {id,customer_code:customer,country,mode,weight,unit,trip,ship_date:shipDate,...(step===undefined?{}:{step})};
  })();
 }
 
