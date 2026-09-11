@@ -1,0 +1,11 @@
+{
+  "name": "smartbasket-whatsapp-dispatcher",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-09-04",
+  "vars": {
+    "SUPABASE_URL": "https://vjosvemchqqwbpscjqfg.supabase.co",
+    "WHATSAPP_ENABLED": "false",
+    "WHATSAPP_TEMPLATE_LANGUAGE": "ar"
+  },
+  "triggers": { "crons": [] }
+}
