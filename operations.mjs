@@ -1,6 +1,8 @@
 import {searchShipments,tripKey,tripSummary,attentionReasons,guessColumns,importRows,reviewImport,csv,code,normalize} from './ops-core.mjs';
-export const tabs=['trips','import','attention','alerts','billing','audit'];
-const names={trips:'الرحلات',import:'استيراد Excel',attention:'تحتاج متابعة',alerts:'الإشعارات',billing:'الحسابات المالية',audit:'سجل التغييرات'};
+import * as services from './customer-services.mjs';
+export const tabs=['trips','import','unknown','delivery','attention','alerts','billing','audit'];
+export const requestDelivery=services.requestDelivery;
+const names={trips:'الرحلات',import:'استيراد Excel',unknown:'مجهولة المالك',delivery:'طلبات التوصيل',attention:'تحتاج متابعة',alerts:'الإشعارات',billing:'الحسابات المالية',audit:'سجل التغييرات'};
 const stages=['وصلت إلى مخزن المنشأ','غادرت المخزن','وصلت إلى ليبيا','جاهزة للاستلام','تم التسليم'];
 const $=id=>document.getElementById(id);let app,selectedTrip='',selected=new Set(),scanSeen=new Set();
 const get=()=>app.getState(),e=v=>app.esc(v),num=v=>Number(v||0).toLocaleString('ar-LY',{maximumFractionDigits:3});
@@ -18,17 +20,19 @@ export function init(context){
  $('trips').innerHTML='<div class="ops-heading"><div><h2>الرحلات</h2><p class="muted">كشف واحد لكل رحلة، من التجهيز إلى الاستلام.</p></div><label>اختَر الرحلة<select id="trip-picker"></select></label></div><div id="trip-view"></div>';
  $('trip-picker').onchange=()=>{selectedTrip=$('trip-picker').value;selected.clear();scanSeen.clear();renderTrip()};
  mountImport();
+ services.init(context);
 }
 export function filter(state){const result=searchShipments(state.shipments,state.users,{query:$('search').value,country:$('filter-country').value,mode:$('filter-mode').value,trip:$('filter-trip')?.value,step:$('filter-step')?.value});if($('result-count'))$('result-count').textContent=`${num(result.length)} شحنة من ${num(state.shipments.length)}`;return result;}
 export function sync(){
  if(!get())return;const s=get(),customer=s.user.role==='customer';
- tabs.forEach(id=>{$(id+'-tab').hidden=customer?!['alerts','billing'].includes(id):(id==='audit'?s.user.role!=='admin':id==='import'?!canManage():id==='billing'?!['admin','accountant'].includes(s.user.role):false);if($(id+'-tab').hidden&&!$(id).hidden)app.tab('ship')});
+ tabs.forEach(id=>{const serviceAllowed=services.allowed(id,s.user.role);$(id+'-tab').hidden=serviceAllowed!==null?!serviceAllowed:customer?!['alerts','billing'].includes(id):(id==='audit'?s.user.role!=='admin':id==='import'?!canManage():id==='billing'?!['admin','accountant'].includes(s.user.role):false);if($(id+'-tab').hidden&&!$(id).hidden)app.tab('ship')});
  fillOptions($('filter-trip'),option('','كل الرحلات','')+[...new Map(s.shipments.map(t=>[tripKey(t),t])).values()].map(t=>option(tripKey(t),`${t.trip} · ${t.country} · ${t.mode}`,'')).join(''));
  fillOptions($('trip-picker'),s.trips.map(t=>option(tripKey(t),`${t.code} · ${t.country} · ${t.mode}`,selectedTrip)).join(''));selectedTrip=$('trip-picker').value;
  renderTrip();renderAttention();syncImportOptions();
+ services.sync();
  if(!$('alerts').hidden)renderAlerts();if(!$('billing').hidden)renderBilling();if(!$('audit').hidden)renderAudit();
 }
-export function opened(name){if(!get())return;if(name==='alerts')renderAlerts();if(name==='billing')renderBilling();if(name==='audit')renderAudit();}
+export function opened(name){if(!get())return;services.opened(name);if(name==='alerts')renderAlerts();if(name==='billing')renderBilling();if(name==='audit')renderAudit();}
 export function enhanceForms(){
  if(!get())return;const roles={staff:'موظف مسؤول',warehouse:'موظف مخزن',accountant:'محاسب'};
  const role=$('user-form')?.elements.role;if(role&&!role.querySelector('[value=warehouse]')){role.insertAdjacentHTML('beforeend',option('warehouse','موظف مخزن','')+option('accountant','محاسب',''))}

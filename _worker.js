@@ -1,5 +1,6 @@
 import {randomBytes,scryptSync,timingSafeEqual,createHash} from 'node:crypto';
 import {Buffer} from 'node:buffer';
+import {customerServices} from './customer-services-api.mjs';
 
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status})};
 const digest=s=>createHash('sha256').update(s).digest('hex');
@@ -91,6 +92,8 @@ export async function handle(req,env){
   const [u]=session?await db('sb_accounts?code=eq.'+encodeURIComponent(session.account_code)):[];
   if(!u?.active||u.salt!==session.account_salt)fail(401,'سجّل الدخول للمتابعة.');
   db.setActor(u.code);
+  const serviceResponse=await customerServices({req,env,db,u,url,body,json,fail,cleanCode,validUuid,text});
+  if(serviceResponse)return serviceResponse;
   const admin=()=>{if(u.role!=='admin')fail(403,'هذه العملية للإدارة فقط.')};
   const manager=()=>{if(!['admin','staff','warehouse'].includes(u.role))fail(403,'هذه العملية للإدارة وموظفي الشحن فقط.')};
   const accountant=()=>{if(!['admin','accountant'].includes(u.role))fail(403,'هذه العملية للإدارة والمحاسب فقط.')};
@@ -217,7 +220,7 @@ export async function handle(req,env){
   }
   fail(404,'المسار غير موجود.');
  }
- const allowed=['/','/index.html','/live-client.js','/operations.mjs','/ops-core.mjs','/operations.css','/import-worker.js','/vendor/xlsx.full.min.js','/vendor/SHEETJS-LICENSE.txt','/vendor/zxing-browser.min.js','/vendor/ZXING-LICENSE.txt','/manifest.webmanifest','/sw.js','/offline.html','/icon-192.svg','/icon-512.svg','/salla-logo-final.png'];
+ const allowed=['/','/index.html','/live-client.js','/operations.mjs','/ops-core.mjs','/operations.css','/customer-services.mjs','/customer-services.css','/import-worker.js','/vendor/xlsx.full.min.js','/vendor/SHEETJS-LICENSE.txt','/vendor/zxing-browser.min.js','/vendor/ZXING-LICENSE.txt','/manifest.webmanifest','/sw.js','/offline.html','/icon-192.svg','/icon-512.svg','/salla-logo-final.png'];
  if(!allowed.includes(route)||!['GET','HEAD'].includes(method))fail(404,'الصفحة غير موجودة.');
  return env.ASSETS.fetch(req);
 }
