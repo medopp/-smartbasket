@@ -65,6 +65,15 @@ function shipmentValues(db,b,old){
  })();
 }
 
+function importRow(r){
+ if(!r||!['create','update','unknown'].includes(r.action))fail(400,'قرار الاستيراد غير صالح.');
+ const id=cleanCode(r.id),customer=cleanCode(r.customer);
+ if(id==='LN-'||!Number.isFinite(Number(r.weight))||Number(r.weight)<=0||Number(r.weight)>100000||!['كجم','متر مكعب'].includes(r.unit))fail(400,'أكمل الأكواد والأوزان.');
+ if(r.action==='unknown'&&customer!=='LN-')fail(400,'كود الزبون الكامل لا يُحوّل إلى المجهولة.');
+ if(r.action==='update'&&(customer==='LN-'||!r.updatedAt||Number.isNaN(Date.parse(r.updatedAt))))fail(400,'أعد مراجعة الشحنة الموجودة.');
+ return {id,customer,weight:Number(r.weight),unit:r.unit,category:text(r.category||'عام',80),action:customer==='LN-'?'unknown':r.action,updatedAt:r.updatedAt||null};
+}
+
 export async function handle(req,env){
  const url=new URL(req.url),route=url.pathname,method=req.method,db=database(env);
  if(!['GET','HEAD'].includes(method)){
@@ -123,7 +132,14 @@ export async function handle(req,env){
    await db('sb_trips','POST',{trip_code:trip,country,mode,arrival_date:date,step:0});return json({ok:true},201);
   }
   if(route==='/api/shipments'&&method==='POST'){
-   manager();const b=await body(req),values=await shipmentValues(db,b);
+   manager();const b=await body(req);
+   if(cleanCode(b.customer)==='LN-'){
+    const row=importRow({...b,action:'unknown'});
+    const result=await db('rpc/sb_import_with_unknowns','POST',{p_rows:[row],p_trip:cleanCode(b.trip),p_country:b.country,p_mode:b.mode});
+    const unknown=result.unknownRows[0];
+    return json({ok:true,unknown:true,id:unknown.id,updatedAt:unknown.updatedAt,existing:result.unknownExisting>0},201);
+   }
+   const values=await shipmentValues(db,b);
    if(values.trip==='لم تُحدد')fail(400,'اختر رحلة محفوظة قبل إضافة الشحنة.');
    await db('sb_shipments','POST',values);return json({ok:true},201);
   }
@@ -138,9 +154,9 @@ export async function handle(req,env){
   }
   if(route==='/api/shipments/import'&&method==='POST'){
    manager();const b=await body(req);if(!Array.isArray(b.rows)||b.rows.length<1||b.rows.length>1000)fail(400,'اختر من 1 إلى 1000 شحنة.');
-   const rows=b.rows.map(r=>{if(!['create','update'].includes(r.action))fail(400,'قرار الاستيراد غير صالح.');const id=cleanCode(r.id),customer=cleanCode(r.customer);if(id==='LN-'||customer==='LN-'||!Number.isFinite(Number(r.weight))||Number(r.weight)<=0||Number(r.weight)>100000||!['كجم','متر مكعب'].includes(r.unit))fail(400,'أكمل الأكواد والأوزان.');if(r.action==='update'&&(!r.updatedAt||Number.isNaN(Date.parse(r.updatedAt))))fail(400,'أعد مراجعة الشحنة الموجودة.');return {id,customer,weight:Number(r.weight),unit:r.unit,category:text(r.category||'عام',80),action:r.action,updatedAt:r.updatedAt||null}});
+   const rows=b.rows.map(importRow);
    if(new Set(rows.map(r=>r.id)).size!==rows.length)fail(400,'شحنات مكررة داخل الدفعة.');
-   return json(await db('rpc/sb_operations_batch','POST',{p_kind:'import',p_rows:rows,p_trip:cleanCode(b.trip),p_country:b.country,p_mode:b.mode}));
+   return json(await db('rpc/sb_import_with_unknowns','POST',{p_rows:rows,p_trip:cleanCode(b.trip),p_country:b.country,p_mode:b.mode}));
   }
   if(route==='/api/shipments/bulk'&&method==='POST'){
    manager();const b=await body(req);if(!['transfer','status'].includes(b.kind)||!Array.isArray(b.ids)||b.ids.length<1||b.ids.length>1000)fail(400,'اختيار غير صالح.');

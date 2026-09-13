@@ -29,13 +29,13 @@ export function importRows(grid,columns){
 }
 export function reviewImport(rows,users,shipments,{mapping={},trip,actions={},excluded=new Set(),unit}={}){
  const customers=new Set(users.filter(u=>u.role==='customer'&&u.active).map(u=>u.code)),existing=new Map(shipments.map(s=>[s.id,s])),seen=new Set();
- return rows.map(r=>{const customer=code(mapping[r.originalCustomer]??r.originalCustomer),old=existing.get(r.id),errors=[];
-  const skip=excluded.has(r.row)||r.originalCustomer==='LN-'||actions[r.row]==='skip';
+ return rows.map(r=>{const customer=code(r.originalCustomer)==='LN-'?'LN-':code(mapping[r.originalCustomer]??r.originalCustomer),unknown=customer==='LN-',old=existing.get(r.id),errors=[];
+  const skip=excluded.has(r.row)||actions[r.row]==='skip';
   if(!validCode(r.id)||/^\d\.\d+E[+-]?\d+$/.test(r.id))errors.push('رقم تتبع غير صالح؛ خزّن الأرقام الطويلة كنص');
-  if(!customers.has(customer))errors.push('الكود غير موجود أو موقوف');if(!Number.isFinite(r.weight)||r.weight<=0||r.weight>100000)errors.push('وزن غير صالح');
+  if(!unknown&&!customers.has(customer))errors.push('الكود غير موجود أو موقوف');if(!Number.isFinite(r.weight)||r.weight<=0||r.weight>100000)errors.push('وزن غير صالح');
   if(seen.has(r.id)&&!skip)errors.push('مكرر داخل الملف');if(!skip)seen.add(r.id);
-  if(!trip)errors.push('اختر رحلة');else{if(trip.step>0&&(!old||tripKey(old)!==tripKey(trip)))errors.push('الرحلة غادرت المخزن');if(unit&&unit!==(trip.mode==='جوي'?'كجم':'متر مكعب'))errors.push('الوحدة لا تطابق نوع الرحلة؛ الجوي كجم والبحري متر مكعب');}
-  const action=old?(actions[r.row]==='update'?'update':'review'):'create';if(old&&action==='review')errors.push('موجود مسبقًا؛ اختر تجاهل أو تحديث ونقل');
+  if(!trip)errors.push('اختر رحلة');else{if(!unknown&&trip.step>0&&(!old||tripKey(old)!==tripKey(trip)))errors.push('الرحلة غادرت المخزن');if(unit&&unit!==(trip.mode==='جوي'?'كجم':'متر مكعب'))errors.push('الوحدة لا تطابق نوع الرحلة؛ الجوي كجم والبحري متر مكعب');}
+  const action=unknown?'unknown':old?(actions[r.row]==='update'?'update':'review'):'create';if(unknown&&old)errors.push('التتبع مرتبط بزبون بالفعل؛ استبعد الصف وراجع الملكية');else if(old&&action==='review')errors.push('موجود مسبقًا؛ اختر تجاهل أو تحديث ونقل');
   return {...r,customer,unit:unit||'كجم',old,action:skip?'skip':action,errors:skip?[]:errors,skip};
  });
 }
