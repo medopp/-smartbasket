@@ -5,7 +5,7 @@ export async function customerServices({req,env,db,u,url,body,json,fail,cleanCod
  const route=url.pathname,method=req.method;
  if(!route.startsWith('/api/unknown-shipments')&&!route.startsWith('/api/delivery-requests'))return null;
  const internal=()=>{if(!['admin','staff','warehouse'].includes(u.role))fail(403,'الشحنات مجهولة المالك قائمة داخلية للموظفين فقط.')};
- const delivery=()=>{if(!['admin','staff','customer'].includes(u.role))fail(403,'طلبات التوصيل للإدارة والموظف المسؤول والزبون المعني فقط.')};
+ const delivery=()=>{if(!['admin','staff','warehouse','customer'].includes(u.role))fail(403,'طلبات التوصيل للإدارة وموظفي الشحن والمخزن والزبون المعني فقط.')};
  const uuid=v=>{if(!validUuid(v))fail(400,'رقم العملية غير صالح.');return v.toLowerCase()};
  const expected=v=>{if(typeof v!=='string'||Number.isNaN(Date.parse(v)))fail(400,'حدّث القائمة قبل المتابعة.');return v};
  const optional=(v,max)=>v==null||v===''?'':text(v,max);

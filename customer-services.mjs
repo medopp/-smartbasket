@@ -5,7 +5,7 @@ const statuses={pending:'طلب جديد',accepted:'قيد التنسيق',close
 const date=v=>new Date(v).toLocaleString('ar-LY');
 const option=(v,t)=>`<option value="${e(v)}">${e(t)}</option>`;
 export function init(context){app=context;const css=document.createElement('link');css.rel='stylesheet';css.href='/customer-services.css';document.head.append(css)}
-export function allowed(name,role){return name==='unknown'?['admin','staff','warehouse'].includes(role):name==='delivery'?['admin','staff','customer'].includes(role):null}
+export function allowed(name,role){return name==='unknown'?['admin','staff','warehouse'].includes(role):name==='delivery'?['admin','staff','warehouse','customer'].includes(role):null}
 export function sync(){
  const code=state()?.user.code||'';
  if(actor!==code){actor=code;for(const id of ['unknown','delivery']){$(id).replaceChildren();sequence[id]++;pages[id].offset=0}pages.delivery.status=state()?.user.role==='customer'?'':'pending'}
