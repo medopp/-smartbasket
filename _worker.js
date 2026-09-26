@@ -35,6 +35,21 @@ async function allRows(db,path){const out=[];for(let offset=0;offset<100000;offs
 const currencies=['USD','LYD','CNY','AED','SAR'];
 const validUuid=v=>typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 
+// Read-only bridge for the accounting site. The private signing key stays in
+// the accounting site's secret store; this public key is safe to ship here.
+const accountingBridgePublicKey='MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoCtLBI1Lv1wzCDjFuFpq8LPD6LBYM1lq7f0spdQFTo2KVQ6FfVMZ3jx6lRZKOJ2FeE9Gpt71736K6wUdS5IfnHCa99/d7ka4zZhWTKm8Wu1WwjvEvJV6j+jy71bNkhLjPqCp+2TPwQ2y60s3ZorqpYrYDjEdGxBwSwVdPbRJfsHMwAKSNZ1uWOafgnWv1ZenDop7FKa0viuny4jQrQ4XoqXIrvgV7lmKtJ5NYiuhNQjZYsH1T5zEF8+A/xqfrtCx1oVxmFA572q+MYI2WcfjZ5NZDsuRcrra3jx9M8eoBT8avMGER2P1tQ8wH3nhvrcen+2zUK0wAf0g9GeFihqdaQIDAQAB';
+const base64Bytes=v=>Buffer.from(String(v||''),'base64');
+async function verifyAccountingBridge(req,customer,trip,country){
+ const stamp=req.headers.get('X-SmartCart-Timestamp')||'',signature=req.headers.get('X-SmartCart-Signature')||'';
+ const seconds=Number(stamp);
+ if(!/^\d{10,13}$/.test(stamp)||!Number.isFinite(seconds)||Math.abs(Date.now()/1000-(stamp.length===13?seconds/1000:seconds))>300||!signature)return false;
+ try{
+  const key=await globalThis.crypto.subtle.importKey('spki',base64Bytes(accountingBridgePublicKey),{name:'RSA-PSS',hash:'SHA-256'},false,['verify']);
+  const payload=`${stamp}.${customer}.${trip}.${country}`;
+  return await globalThis.crypto.subtle.verify({name:'RSA-PSS',saltLength:32},key,base64Bytes(signature),new TextEncoder().encode(payload));
+ }catch{return false}
+}
+
 async function getTrip(db,trip,country,mode){const [row]=await db(filter('sb_trips',{trip_code:trip,country,mode}));return row}
 
 function shipmentValues(db,b,old){
@@ -79,6 +94,12 @@ export async function handle(req,env){
  if(!['GET','HEAD'].includes(method)){
   if(req.headers.get('Origin')!==url.origin)fail(403,'مصدر الطلب غير مسموح.');
   if(!req.headers.get('Content-Type')?.startsWith('application/json'))fail(415,'صيغة الطلب غير صالحة.');
+ }
+ if(route==='/api/integration/shipments'&&method==='GET'){
+  const customer=cleanCode(url.searchParams.get('customer')),trip=cleanCode(url.searchParams.get('trip')),country=url.searchParams.get('country')||'';
+  if(!countries.includes(country)||!(await verifyAccountingBridge(req,customer,trip,country)))fail(401,'طلب الربط غير مصادق عليه.');
+  const rows=await allRows(db,'sb_shipments?select=id,customer_code,country,mode,weight,unit,trip,category,ship_date,step,updated_at&customer_code=eq.'+encodeURIComponent(customer)+'&trip=eq.'+encodeURIComponent(trip)+'&country=eq.'+encodeURIComponent(country)+'&order=id');
+  return json({customer,trip,country,readOnly:true,shipments:rows.map(s=>({tracking:s.id,customer:s.customer_code,country:s.country,mode:s.mode,weight:Number(s.weight),unit:s.unit,category:s.category||'عام',shipDate:s.ship_date||null,step:Number(s.step||0),status:states[Number(s.step||0)]||states[0],updatedAt:s.updated_at}))});
  }
  if(route==='/api/bootstrap'&&method==='GET')return json({needsSetup:false,requiresSetupKey:true});
  if(route==='/api/setup')fail(403,'إنشاء الحسابات متاح من الإدارة فقط.');
