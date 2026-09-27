@@ -49,6 +49,15 @@ async function verifyAccountingBridge(req,customer,trip,country){
   return await globalThis.crypto.subtle.verify({name:'RSA-PSS',saltLength:32},key,base64Bytes(signature),new TextEncoder().encode(payload));
  }catch{return false}
 }
+async function verifyAccountingBridgePayload(req,payload){
+ const stamp=req.headers.get('X-SmartCart-Timestamp')||'',signature=req.headers.get('X-SmartCart-Signature')||'';
+ const seconds=Number(stamp);
+ if(!/^\d{10,13}$/.test(stamp)||!Number.isFinite(seconds)||Math.abs(Date.now()/1000-(stamp.length===13?seconds/1000:seconds))>300||!signature)return false;
+ try{
+  const key=await globalThis.crypto.subtle.importKey('spki',base64Bytes(accountingBridgePublicKey),{name:'RSA-PSS',hash:'SHA-256'},false,['verify']);
+  return await globalThis.crypto.subtle.verify({name:'RSA-PSS',saltLength:32},key,base64Bytes(signature),new TextEncoder().encode(`${stamp}.${payload}`));
+ }catch{return false}
+}
 
 async function getTrip(db,trip,country,mode){const [row]=await db(filter('sb_trips',{trip_code:trip,country,mode}));return row}
 
@@ -100,6 +109,11 @@ export async function handle(req,env){
   if(!countries.includes(country)||!(await verifyAccountingBridge(req,customer,trip,country)))fail(401,'طلب الربط غير مصادق عليه.');
   const rows=await allRows(db,'sb_shipments?select=id,customer_code,country,mode,weight,unit,trip,category,ship_date,step,updated_at&customer_code=eq.'+encodeURIComponent(customer)+'&trip=eq.'+encodeURIComponent(trip)+'&country=eq.'+encodeURIComponent(country)+'&order=id');
   return json({customer,trip,country,readOnly:true,shipments:rows.map(s=>({tracking:s.id,customer:s.customer_code,country:s.country,mode:s.mode,weight:Number(s.weight),unit:s.unit,category:s.category||'عام',shipDate:s.ship_date||null,step:Number(s.step||0),status:states[Number(s.step||0)]||states[0],updatedAt:s.updated_at}))});
+ }
+ if(route==='/api/integration/customers'&&method==='GET'){
+  if(!(await verifyAccountingBridgePayload(req,'customers')))fail(401,'طلب الربط غير مصادق عليه.');
+  const rows=await allRows(db,'sb_accounts?select=code,name&role=eq.customer&active=eq.true&order=code');
+  return json({readOnly:true,customers:rows.map(row=>({code:cleanCode(row.code),name:String(row.name||row.code)}))});
  }
  if(route==='/api/bootstrap'&&method==='GET')return json({needsSetup:false,requiresSetupKey:true});
  if(route==='/api/setup')fail(403,'إنشاء الحسابات متاح من الإدارة فقط.');
