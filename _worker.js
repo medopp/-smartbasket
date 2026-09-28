@@ -37,14 +37,14 @@ const validUuid=v=>typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0
 
 // Read-only bridge for the accounting site. The private signing key stays in
 // the accounting site's secret store; this public key is safe to ship here.
-const accountingBridgePublicKey='MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzPKy2Ty7sIaEwSM3b9F68wiwossK6PJ4vCWYlge3oKTVLA/erTPcrKGXujgYg4DKCm1CPT1EngAp/FW62MJVxF0k3Gi4qLUxYAG50WtCMxkfr7WwlongiId/K2KVjPG1/QJX0kYjHpCa/d30sIFc93e+zqIsMmLkaLFg4uAOPIoIyPMOu6gOj2T3RJvTg+AnAKGwcTeE0C4vOCu1/o0WJ8yaEZagsf6HnTEu5bltj4I/AC/Ogitz34Nl9Xq0X6CWMP4k5OMwnWCFLX9+5ywG+Ar9uSezfymc8XdQJnEHHNzqEP9o/JRXAwHhnJq1J6o4Dhhbys2JAyemqyERIns07QIDAQAB';
+const ='MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzPKy2Ty7sIaEwSM3b9F68wiwossK6PJ4vCWYlge3oKTVLA/erTPcrKGXujgYg4DKCm1CPT1EngAp/FW62MJVxF0k3Gi4qLUxYAG50WtCMxkfr7WwlongiId/K2KVjPG1/QJX0kYjHpCa/d30sIFc93e+zqIsMmLkaLFg4uAOPIoIyPMOu6gOj2T3RJvTg+AnAKGwcTeE0C4vOCu1/o0WJ8yaEZagsf6HnTEu5bltj4I/AC/Ogitz34Nl9Xq0X6CWMP4k5OMwnWCFLX9+5ywG+Ar9uSezfymc8XdQJnEHHNzqEP9o/JRXAwHhnJq1J6o4Dhhbys2JAyemqyERIns07QIDAQAB';
 const base64Bytes=v=>Buffer.from(String(v||''),'base64');
 async function verifyAccountingBridge(req,customer,trip,country){
  const stamp=req.headers.get('X-SmartCart-Timestamp')||'',signature=req.headers.get('X-SmartCart-Signature')||'';
  const seconds=Number(stamp);
  if(!/^\d{10,13}$/.test(stamp)||!Number.isFinite(seconds)||Math.abs(Date.now()/1000-(stamp.length===13?seconds/1000:seconds))>300||!signature)return false;
  try{
-  const key=await globalThis.crypto.subtle.importKey('spki',base64Bytes(accountingBridgePublicKey),{name:'RSA-PSS',hash:'SHA-256'},false,['verify']);
+  const key=await globalThis.crypto.subtle.importKey('spki',base64Bytes(),{name:'RSA-PSS',hash:'SHA-256'},false,['verify']);
   const payload=`${stamp}.${customer}.${trip}.${country}`;
   return await globalThis.crypto.subtle.verify({name:'RSA-PSS',saltLength:32},key,base64Bytes(signature),new TextEncoder().encode(payload));
  }catch{return false}
@@ -54,7 +54,7 @@ async function verifyAccountingBridgePayload(req,payload){
  const seconds=Number(stamp);
  if(!/^\d{10,13}$/.test(stamp)||!Number.isFinite(seconds)||Math.abs(Date.now()/1000-(stamp.length===13?seconds/1000:seconds))>300||!signature)return false;
  try{
-  const key=await globalThis.crypto.subtle.importKey('spki',base64Bytes(accountingBridgePublicKey),{name:'RSA-PSS',hash:'SHA-256'},false,['verify']);
+  const key=await globalThis.crypto.subtle.importKey('spki',base64Bytes(),{name:'RSA-PSS',hash:'SHA-256'},false,['verify']);
   return await globalThis.crypto.subtle.verify({name:'RSA-PSS',saltLength:32},key,base64Bytes(signature),new TextEncoder().encode(`${stamp}.${payload}`));
  }catch{return false}
 }
