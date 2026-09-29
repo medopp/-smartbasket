@@ -109,15 +109,15 @@ export async function handle(req,env){
  if(route==='/api/integration/shipments'&&method==='GET'){
   const customer=cleanCode(url.searchParams.get('customer')),trip=cleanCode(url.searchParams.get('trip')),country=url.searchParams.get('country')||'';
   if(!countries.includes(country)||!(await verifyAccountingBridge(req,customer,trip,country)))fail(401,'طلب الربط غير مصادق عليه.');
-  const rows=await allRows(db,'sb_shipments?select=id,customer_code,country,mode,weight,unit,trip,category,ship_date,step,updated_at&customer_code=eq.'+encodeURIComponent(customer)+'&trip=eq.'+encodeURIComponent(trip)+'&country=eq.'+encodeURIComponent(country)+'&order=id');
+  const rows=await allRows(db,'sb_shipments?select=id,customer_code,country,mode,weight,unit,trip,category,ship_date,step,updated_at&customer_code=ilike.'+encodeURIComponent(customer)+'&trip=eq.'+encodeURIComponent(trip)+'&country=eq.'+encodeURIComponent(country)+'&order=id');
   return json({customer,trip,country,readOnly:true,shipments:rows.map(s=>({tracking:s.id,customer:s.customer_code,country:s.country,mode:s.mode,weight:Number(s.weight),unit:s.unit,category:s.category||'عام',shipDate:s.ship_date||null,step:Number(s.step||0),status:states[Number(s.step||0)]||states[0],updatedAt:s.updated_at}))});
  }
  if(route==='/api/integration/trips'&&method==='GET'){
   const customer=cleanCode(url.searchParams.get('customer'));
   if(!(await verifyAccountingBridgePayload(req,'trips.'+customer)))fail(401,'طلب الربط غير مصادق عليه.');
-  const rows=await allRows(db,'sb_shipments?select=trip,country,mode&customer_code=eq.'+encodeURIComponent(customer)+'&trip=not.is.null&trip=neq.لم تُحدد&order=trip,country,mode');
+  const [rows,tripRows]=await Promise.all([    allRows(db,'sb_shipments?select=trip,country,mode&customer_code=ilike.'+encodeURIComponent(customer)+'&trip=not.is.null&trip=neq.لم تُحدد&order=trip,country,mode'),    allRows(db,'sb_trips?select=trip_code,country,mode&order=trip_code,country,mode')  ]);  const tripByCode=new Map(tripRows.map(row=>[String(row.trip_code||'').trim().toUpperCase(),row]));
   const unique=new Map();
-  for(const row of rows){if(!row.trip||!countries.includes(row.country)||!modes.includes(row.mode))continue;const key=[row.trip,row.country,row.mode].join('|');if(!unique.has(key))unique.set(key,{code:row.trip,country:row.country,mode:row.mode});}
+  for(const row of rows){const code=String(row.trip||'').trim().toUpperCase(),canonical=tripByCode.get(code);if(!code||code==='لم تُحدد')continue;const country=countries.includes(row.country)?row.country:(countries.includes(canonical?.country)?canonical.country:null);const mode=modes.includes(row.mode)?row.mode:(modes.includes(canonical?.mode)?canonical.mode:null);const key=[code,country||'',mode||''].join('|');if(!unique.has(key))unique.set(key,{code,country,mode});}
   return json({customer,readOnly:true,trips:[...unique.values()]});
  }
 if(route==='/api/integration/customers'&&method==='GET'){
@@ -154,7 +154,7 @@ if(route==='/api/integration/customers'&&method==='GET'){
   if(route==='/api/logout'&&method==='POST'){await db('sb_sessions?token_hash=eq.'+digest(token),'DELETE');return json({ok:true},200,{'Set-Cookie':cookie('',0)})}
   if(route==='/api/state'&&method==='GET'){
    const users=u.role==='customer'?[publicUser(u)]:(await allRows(db,'sb_accounts?select=code,name,role,active,phone,whatsapp_opt_in&order=code'+(u.role!=='admin'?'&role=eq.customer':''))).map(publicUser);
-   const rows=await allRows(db,'sb_shipments?order=created_at.desc,id'+(u.role==='customer'?'&customer_code=eq.'+encodeURIComponent(u.code):''));
+   const rows=await allRows(db,'sb_shipments?order=created_at.desc,id'+(u.role==='customer'?'&customer_code=ilike.'+encodeURIComponent(u.code):''));
    const trips=u.role==='customer'?[]:await allRows(db,'sb_trips?order=created_at.desc,trip_code,country,mode');
    const counts=new Map();rows.forEach(s=>{const key=[s.trip,s.country,s.mode].join('|');counts.set(key,(counts.get(key)||0)+1)});
    return json({user:publicUser(u),users,trips:trips.map(t=>({...publicTrip(t),shipmentCount:counts.get([t.trip_code,t.country,t.mode].join('|'))||0})),shipments:rows.map(s=>({id:s.id,customer:s.customer_code,country:s.country,mode:s.mode,weight:s.weight+' '+s.unit,weightValue:Number(s.weight),unit:s.unit,trip:s.trip,date:s.ship_date||'لم يُحدد',step:Number(s.step),status:states[Number(s.step)]||states[0],hasPhoto:!!s.photo_key,category:s.category||'عام',updatedAt:s.updated_at}))});
@@ -219,19 +219,19 @@ if(route==='/api/integration/customers'&&method==='GET'){
    manager();const b=await body(req);if(!Array.isArray(b.scanned)||b.scanned.length<1||b.scanned.length>2000)fail(400,'قائمة المسح غير صالحة.');return json(await db('rpc/sb_save_reconciliation','POST',{p_trip:cleanCode(b.trip),p_country:b.country,p_mode:b.mode,p_scanned:[...new Set(b.scanned.map(cleanCode))]}),201);
   }
   if(route==='/api/notifications'&&method==='GET'){
-   return json(await db('sb_notifications?order=updated_at.desc&limit=200'+(u.role==='customer'?'&customer_code=eq.'+encodeURIComponent(u.code):'')));
+   return json(await db('sb_notifications?order=updated_at.desc&limit=200'+(u.role==='customer'?'&customer_code=ilike.'+encodeURIComponent(u.code):'')));
   }
   if(route==='/api/notifications/read'&&method==='POST'){
    if(u.role!=='customer')fail(403,'تأكيد القراءة من حساب الزبون نفسه.');
-   const b=await body(req);if(!validUuid(b.id))fail(400,'إشعار غير صالح.');const query='sb_notifications?id=eq.'+b.id+(u.role==='customer'?'&customer_code=eq.'+encodeURIComponent(u.code):'');await db(query,'PATCH',{read_at:new Date().toISOString()});return json({ok:true});
+   const b=await body(req);if(!validUuid(b.id))fail(400,'إشعار غير صالح.');const query='sb_notifications?id=eq.'+b.id+(u.role==='customer'?'&customer_code=ilike.'+encodeURIComponent(u.code):'');await db(query,'PATCH',{read_at:new Date().toISOString()});return json({ok:true});
   }
   if(route==='/api/notifications/consent'&&method==='POST'){
    if(u.role!=='customer')fail(403,'موافقة الإشعارات من حساب الزبون نفسه.');const b=await body(req);if(typeof b.enabled!=='boolean')fail(400,'اختيار غير صالح.');await db(filter('sb_accounts',{code:u.code}),'PATCH',{whatsapp_opt_in:b.enabled});return json({ok:true});
   }
   if(route==='/api/billing'&&method==='GET'){
    if(!['admin','accountant','customer'].includes(u.role))fail(403,'هذه البيانات للمحاسب والإدارة والزبون المعني فقط.');
-   const invoices=await allRows(db,'sb_invoices?order=number.desc'+(u.role==='customer'?'&customer_code=eq.'+encodeURIComponent(u.code):''));
-   const payments=await allRows(db,'sb_payments?select=*,sb_invoices!inner(customer_code)&order=created_at,id'+(u.role==='customer'?'&sb_invoices.customer_code=eq.'+encodeURIComponent(u.code):''));
+   const invoices=await allRows(db,'sb_invoices?order=number.desc'+(u.role==='customer'?'&customer_code=ilike.'+encodeURIComponent(u.code):''));
+   const payments=await allRows(db,'sb_payments?select=*,sb_invoices!inner(customer_code)&order=created_at,id'+(u.role==='customer'?'&sb_invoices.customer_code=ilike.'+encodeURIComponent(u.code):''));
    return json({invoices,payments:payments.map(({sb_invoices,...p})=>p),rates:u.role==='customer'?[]:await allRows(db,'sb_rates?order=country,mode,category'),billed:invoices.flatMap(i=>i.lines.map(l=>l.id))});
   }
   if(route==='/api/billing/rates'&&method==='POST'){
