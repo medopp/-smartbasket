@@ -141,14 +141,24 @@ export async function handle(req,env){
   if(!(await verifyAccountingBridgePayload(req,'trips.'+customer)))fail(401,'طلب الربط غير مصادق عليه.');
   const aliases=await customerAliases(db,customer);
   const [rows,tripRows]=await Promise.all([
-   Promise.all(aliases.map(alias=>allRows(db,'sb_shipments?select=trip,country,mode&customer_code=ilike.'+encodeURIComponent(alias)+'&trip=not.is.null&trip=neq.لم تُحدد&order=trip,country,mode'))).then(groups=>groups.flat()),
+   // Read the customer's shipment rows first and filter the placeholder trip
+   // value in JavaScript. This keeps old rows visible even when their trip
+   // value uses a legacy label or contains different casing.
+   Promise.all(aliases.map(alias=>allRows(db,'sb_shipments?select=trip,country,mode&customer_code=ilike.'+encodeURIComponent(alias)+'&order=trip,country,mode'))).then(groups=>groups.flat()),
    allRows(db,'sb_trips?select=trip_code,country,mode,arrival_date,step&order=trip_code,country,mode')
   ]);
-  const tripByCode=new Map(tripRows.map(row=>[String(row.trip_code||'').trim().toUpperCase(),row]));
+  const normalizeTrip=value=>{
+   const raw=String(value||'').trim().toUpperCase();
+   const tokens=raw.match(/[A-Z0-9]+(?:-[A-Z0-9]+)*/g)||[];
+   return (tokens.find(token=>/\d/.test(token))||tokens.at(-1)||raw).trim();
+  };
+  const tripByCode=new Map(tripRows.map(row=>[normalizeTrip(row.trip_code),row]));
   const unique=new Map();
   for(const row of rows){
-   const code=String(row.trip||'').trim().toUpperCase(),canonical=tripByCode.get(code);
-   if(!code||code==='لم تُحدد')continue;
+   const rawTrip=String(row.trip||'').trim();
+   if(!rawTrip||rawTrip==='لم تُحدد')continue;
+   const code=normalizeTrip(rawTrip),canonical=tripByCode.get(code);
+   if(!code)continue;
    const country=countries.includes(row.country)?row.country:(countries.includes(canonical?.country)?canonical.country:'');
    const mode=modes.includes(row.mode)?row.mode:(modes.includes(canonical?.mode)?canonical.mode:'');
    if(!country||!mode)continue;
