@@ -161,7 +161,8 @@ export async function handle(req,env){
    if(!code)continue;
    const country=countries.includes(row.country)?row.country:(countries.includes(canonical?.country)?canonical.country:'');
    const mode=modes.includes(row.mode)?row.mode:(modes.includes(canonical?.mode)?canonical.mode:'');
-   if(!country||!mode)continue;
+   // Keep the trip visible even if a legacy shipment is missing source/mode;
+   // the accounting form can then complete those fields manually.
    const key=[code,country,mode].join('|');
    if(!unique.has(key))unique.set(key,{code,country,mode,date:canonical?.arrival_date||'لم يُحدد',step:Number(canonical?.step||0)});
   }
