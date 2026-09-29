@@ -34,7 +34,7 @@ export function database(env){let actor='',batchId='';const db=async(path,method
  };db.setActor=code=>{actor=code;batchId=crypto.randomUUID()};return db;}
 
 async function allRows(db,path){const out=[];for(let offset=0;offset<100000;offset+=1000){const rows=await db(path+(path.includes('?')?'&':'?')+'limit=1000&offset='+offset);out.push(...rows);if(rows.length<1000)return out;}fail(503,'البيانات كبيرة جدًا لهذا العرض. تواصل مع الإدارة.');}
-const currencies=['USD','LYD','CNY','AED','SAR'];
+async function resolveCustomerCode(db,customer){ const query='sb_accounts?select=code,name&role=eq.customer&or=(code.ilike.'+encodeURIComponent(customer)+',name.ilike.'+encodeURIComponent(customer)+')'; const [row]=await db(query); const alias=String(row?.name||'').trim().toUpperCase(); return /^LN-[A-Z0-9-]{1,32}$/.test(alias)?alias:customer;}const currencies=['USD','LYD','CNY','AED','SAR'];
 const validUuid=v=>typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 
 // Read-only bridge for the accounting site. The private signing key stays in
@@ -107,15 +107,15 @@ export async function handle(req,env){
   if(!req.headers.get('Content-Type')?.startsWith('application/json'))fail(415,'صيغة الطلب غير صالحة.');
  }
  if(route==='/api/integration/shipments'&&method==='GET'){
-  const customer=cleanCode(url.searchParams.get('customer')),trip=cleanCode(url.searchParams.get('trip')),country=url.searchParams.get('country')||'';
+  const customer=cleanCode(url.searchParams.get('customer')),trip=cleanCode(url.searchParams.get('trip')),country=url.searchParams.get('country')||'';  const trackingCustomer=await resolveCustomerCode(db,customer);
   if(!countries.includes(country)||!(await verifyAccountingBridge(req,customer,trip,country)))fail(401,'طلب الربط غير مصادق عليه.');
-  const rows=await allRows(db,'sb_shipments?select=id,customer_code,country,mode,weight,unit,trip,category,ship_date,step,updated_at&customer_code=ilike.'+encodeURIComponent(customer)+'&trip=eq.'+encodeURIComponent(trip)+'&country=eq.'+encodeURIComponent(country)+'&order=id');
+  const rows=await allRows(db,'sb_shipments?select=id,customer_code,country,mode,weight,unit,trip,category,ship_date,step,updated_at&customer_code=ilike.'+encodeURIComponent(trackingCustomer)+'&trip=eq.'+encodeURIComponent(trip)+'&country=eq.'+encodeURIComponent(country)+'&order=id');
   return json({customer,trip,country,readOnly:true,shipments:rows.map(s=>({tracking:s.id,customer:s.customer_code,country:s.country,mode:s.mode,weight:Number(s.weight),unit:s.unit,category:s.category||'عام',shipDate:s.ship_date||null,step:Number(s.step||0),status:states[Number(s.step||0)]||states[0],updatedAt:s.updated_at}))});
  }
  if(route==='/api/integration/trips'&&method==='GET'){
-  const customer=cleanCode(url.searchParams.get('customer'));
+  const customer=cleanCode(url.searchParams.get('customer'));  const trackingCustomer=await resolveCustomerCode(db,customer);
   if(!(await verifyAccountingBridgePayload(req,'trips.'+customer)))fail(401,'طلب الربط غير مصادق عليه.');
-  const [rows,tripRows]=await Promise.all([    allRows(db,'sb_shipments?select=trip,country,mode&customer_code=ilike.'+encodeURIComponent(customer)+'&trip=not.is.null&trip=neq.لم تُحدد&order=trip,country,mode'),    allRows(db,'sb_trips?select=trip_code,country,mode&order=trip_code,country,mode')  ]);  const tripByCode=new Map(tripRows.map(row=>[String(row.trip_code||'').trim().toUpperCase(),row]));
+  const [rows,tripRows]=await Promise.all([    allRows(db,'sb_shipments?select=trip,country,mode&customer_code=ilike.'+encodeURIComponent(trackingCustomer)+'&trip=not.is.null&trip=neq.لم تُحدد&order=trip,country,mode'),    allRows(db,'sb_trips?select=trip_code,country,mode&order=trip_code,country,mode')  ]);  const tripByCode=new Map(tripRows.map(row=>[String(row.trip_code||'').trim().toUpperCase(),row]));
   const unique=new Map();
   for(const row of rows){const code=String(row.trip||'').trim().toUpperCase(),canonical=tripByCode.get(code);if(!code||code==='لم تُحدد')continue;const country=countries.includes(row.country)?row.country:(countries.includes(canonical?.country)?canonical.country:null);const mode=modes.includes(row.mode)?row.mode:(modes.includes(canonical?.mode)?canonical.mode:null);const key=[code,country||'',mode||''].join('|');if(!unique.has(key))unique.set(key,{code,country,mode});}
   return json({customer,readOnly:true,trips:[...unique.values()]});
