@@ -58,13 +58,13 @@ const validUuid=v=>typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0
 // the accounting site's secret store; this public key is safe to ship here.
 
 const base64Bytes=v=>Buffer.from(String(v||''),'base64');
-async function verifyAccountingBridge(req,customer,trip,country){
+async function verifyAccountingBridge(req,customer,trip,country,mode=''){
  const stamp=req.headers.get('X-SmartCart-Timestamp')||'',signature=req.headers.get('X-SmartCart-Signature')||'';
  const seconds=Number(stamp);
  if(!/^\d{10,13}$/.test(stamp)||!Number.isFinite(seconds)||Math.abs(Date.now()/1000-(stamp.length===13?seconds/1000:seconds))>300||!signature)return false;
  try{
   const key=await globalThis.crypto.subtle.importKey('spki',base64Bytes(accountingBridgePublicKey),{name:'RSA-PSS',hash:'SHA-256'},false,['verify']);
-  const payload=`${stamp}.${customer}.${trip}.${country}`;
+  const payload=mode?`${stamp}.${customer}.${trip}.${country}.${mode}`:`${stamp}.${customer}.${trip}.${country}`;
   return await globalThis.crypto.subtle.verify({name:'RSA-PSS',saltLength:32},key,base64Bytes(signature),new TextEncoder().encode(payload));
  }catch{return false}
 }
@@ -128,7 +128,7 @@ export async function handle(req,env){
   if(!countries.includes(country)|| (mode && !modes.includes(mode)) || !(await verifyAccountingBridge(req,customer,trip,country,mode)))fail(401,'طلب الربط غير مصادق عليه.');
   const aliases=await customerAliases(db,customer);
   const rows=(await Promise.all(aliases.map(async alias=>{
-   let path='sb_shipments?select=id,customer_code,country,mode,weight,unit,trip,category,ship_date,step,updated_at&customer_code=eq.'+encodeURIComponent(alias)+'&trip=eq.'+encodeURIComponent(trip)+'&country=eq.'+encodeURIComponent(country);
+   let path='sb_shipments?select=id,customer_code,country,mode,weight,unit,trip,category,ship_date,step,updated_at&customer_code=ilike.'+encodeURIComponent(alias)+'&trip=ilike.'+encodeURIComponent(trip)+'&country=eq.'+encodeURIComponent(country);
    if(mode)path+='&mode=eq.'+encodeURIComponent(mode);
    path+='&order=id';
    return allRows(db,path);
@@ -141,7 +141,7 @@ export async function handle(req,env){
   if(!(await verifyAccountingBridgePayload(req,'trips.'+customer)))fail(401,'طلب الربط غير مصادق عليه.');
   const aliases=await customerAliases(db,customer);
   const [rows,tripRows]=await Promise.all([
-   Promise.all(aliases.map(alias=>allRows(db,'sb_shipments?select=trip,country,mode&customer_code=eq.'+encodeURIComponent(alias)+'&trip=not.is.null&trip=neq.لم تُحدد&order=trip,country,mode'))).then(groups=>groups.flat()),
+   Promise.all(aliases.map(alias=>allRows(db,'sb_shipments?select=trip,country,mode&customer_code=ilike.'+encodeURIComponent(alias)+'&trip=not.is.null&trip=neq.لم تُحدد&order=trip,country,mode'))).then(groups=>groups.flat()),
    allRows(db,'sb_trips?select=trip_code,country,mode,arrival_date,step&order=trip_code,country,mode')
   ]);
   const tripByCode=new Map(tripRows.map(row=>[String(row.trip_code||'').trim().toUpperCase(),row]));
