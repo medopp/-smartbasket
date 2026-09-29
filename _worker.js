@@ -34,7 +34,24 @@ export function database(env){let actor='',batchId='';const db=async(path,method
  };db.setActor=code=>{actor=code;batchId=crypto.randomUUID()};return db;}
 
 async function allRows(db,path){const out=[];for(let offset=0;offset<100000;offset+=1000){const rows=await db(path+(path.includes('?')?'&':'?')+'limit=1000&offset='+offset);out.push(...rows);if(rows.length<1000)return out;}fail(503,'البيانات كبيرة جدًا لهذا العرض. تواصل مع الإدارة.');}
-async function resolveCustomerCode(db,customer){ const rows=await allRows(db,'sb_accounts?select=code,name&role=eq.customer'); const row=rows.find(item=>String(item.code||'').trim().toUpperCase()===customer||String(item.name||'').trim().toUpperCase()===customer); const alias=String(row?.name||'').trim().toUpperCase(); return /^LN-[A-Z0-9-]{1,32}$/.test(alias)?alias:customer;}const currencies=['USD','LYD','CNY','AED','SAR'];
+const trackingCodePattern=/^LN-[A-Z0-9-]{1,32}$/i;
+// Resolve both the public tracking code and the older internal account code.
+async function customerAliases(db,requested){
+ const wanted=String(requested||'').trim().toUpperCase();
+ const rows=await allRows(db,'sb_accounts?select=code,name&role=eq.customer');
+ const aliases=new Set([wanted]);
+ for(const row of rows){
+  const code=String(row.code||'').trim().toUpperCase();
+  const name=String(row.name||'').trim().toUpperCase();
+  if(code===wanted||name===wanted){if(code)aliases.add(code);if(name&&trackingCodePattern.test(name))aliases.add(name);}
+ }
+ return [...aliases].filter(value=>trackingCodePattern.test(value));
+}
+const trackingCustomerCode=row=>{
+ const name=String(row?.name||'').trim().toUpperCase();
+ return trackingCodePattern.test(name)?name:cleanCode(row?.code||'');
+};
+const currencies=['USD','LYD','CNY','AED','SAR'];
 const validUuid=v=>typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 
 // Read-only bridge for the accounting site. The private signing key stays in
@@ -107,23 +124,43 @@ export async function handle(req,env){
   if(!req.headers.get('Content-Type')?.startsWith('application/json'))fail(415,'صيغة الطلب غير صالحة.');
  }
  if(route==='/api/integration/shipments'&&method==='GET'){
-  const customer=cleanCode(url.searchParams.get('customer')),trip=cleanCode(url.searchParams.get('trip')),country=url.searchParams.get('country')||'';  const trackingCustomer=await resolveCustomerCode(db,customer);
-  if(!countries.includes(country)||!(await verifyAccountingBridge(req,customer,trip,country)))fail(401,'طلب الربط غير مصادق عليه.');
-  const rows=await allRows(db,'sb_shipments?select=id,customer_code,country,mode,weight,unit,trip,category,ship_date,step,updated_at&customer_code=ilike.'+encodeURIComponent(trackingCustomer)+'&trip=eq.'+encodeURIComponent(trip)+'&country=eq.'+encodeURIComponent(country)+'&order=id');
-  return json({customer,trip,country,readOnly:true,shipments:rows.map(s=>({tracking:s.id,customer:s.customer_code,country:s.country,mode:s.mode,weight:Number(s.weight),unit:s.unit,category:s.category||'عام',shipDate:s.ship_date||null,step:Number(s.step||0),status:states[Number(s.step||0)]||states[0],updatedAt:s.updated_at}))});
+  const customer=cleanCode(url.searchParams.get('customer')),trip=cleanCode(url.searchParams.get('trip')),country=url.searchParams.get('country')||'',mode=url.searchParams.get('mode')||'';
+  if(!countries.includes(country)|| (mode && !modes.includes(mode)) || !(await verifyAccountingBridge(req,customer,trip,country,mode)))fail(401,'طلب الربط غير مصادق عليه.');
+  const aliases=await customerAliases(db,customer);
+  const rows=(await Promise.all(aliases.map(async alias=>{
+   let path='sb_shipments?select=id,customer_code,country,mode,weight,unit,trip,category,ship_date,step,updated_at&customer_code=eq.'+encodeURIComponent(alias)+'&trip=eq.'+encodeURIComponent(trip)+'&country=eq.'+encodeURIComponent(country);
+   if(mode)path+='&mode=eq.'+encodeURIComponent(mode);
+   path+='&order=id';
+   return allRows(db,path);
+  }))).flat();
+  const uniqueRows=[...new Map(rows.map(row=>[String(row.id),row])).values()];
+  return json({customer,trip,country,mode:mode||null,readOnly:true,shipments:uniqueRows.map(s=>({tracking:s.id,customer:s.customer_code,country:s.country,mode:s.mode,weight:Number(s.weight),unit:s.unit,category:s.category||'عام',shipDate:s.ship_date||null,step:Number(s.step||0),status:states[Number(s.step||0)]||states[0],updatedAt:s.updated_at}))});
  }
  if(route==='/api/integration/trips'&&method==='GET'){
-  const customer=cleanCode(url.searchParams.get('customer'));  const trackingCustomer=await resolveCustomerCode(db,customer);
+  const customer=cleanCode(url.searchParams.get('customer'));
   if(!(await verifyAccountingBridgePayload(req,'trips.'+customer)))fail(401,'طلب الربط غير مصادق عليه.');
-  const [rows,tripRows]=await Promise.all([    allRows(db,'sb_shipments?select=trip,country,mode&customer_code=ilike.'+encodeURIComponent(trackingCustomer)+'&trip=not.is.null&trip=neq.لم تُحدد&order=trip,country,mode'),    allRows(db,'sb_trips?select=trip_code,country,mode&order=trip_code,country,mode')  ]);  const tripByCode=new Map(tripRows.map(row=>[String(row.trip_code||'').trim().toUpperCase(),row]));
+  const aliases=await customerAliases(db,customer);
+  const [rows,tripRows]=await Promise.all([
+   Promise.all(aliases.map(alias=>allRows(db,'sb_shipments?select=trip,country,mode&customer_code=eq.'+encodeURIComponent(alias)+'&trip=not.is.null&trip=neq.لم تُحدد&order=trip,country,mode'))).then(groups=>groups.flat()),
+   allRows(db,'sb_trips?select=trip_code,country,mode,arrival_date,step&order=trip_code,country,mode')
+  ]);
+  const tripByCode=new Map(tripRows.map(row=>[String(row.trip_code||'').trim().toUpperCase(),row]));
   const unique=new Map();
-  for(const row of rows){const code=String(row.trip||'').trim().toUpperCase(),canonical=tripByCode.get(code);if(!code||code==='لم تُحدد')continue;const country=countries.includes(row.country)?row.country:(countries.includes(canonical?.country)?canonical.country:null);const mode=modes.includes(row.mode)?row.mode:(modes.includes(canonical?.mode)?canonical.mode:null);const key=[code,country||'',mode||''].join('|');if(!unique.has(key))unique.set(key,{code,country,mode});}
+  for(const row of rows){
+   const code=String(row.trip||'').trim().toUpperCase(),canonical=tripByCode.get(code);
+   if(!code||code==='لم تُحدد')continue;
+   const country=countries.includes(row.country)?row.country:(countries.includes(canonical?.country)?canonical.country:'');
+   const mode=modes.includes(row.mode)?row.mode:(modes.includes(canonical?.mode)?canonical.mode:'');
+   if(!country||!mode)continue;
+   const key=[code,country,mode].join('|');
+   if(!unique.has(key))unique.set(key,{code,country,mode,date:canonical?.arrival_date||'لم يُحدد',step:Number(canonical?.step||0)});
+  }
   return json({customer,readOnly:true,trips:[...unique.values()]});
  }
-if(route==='/api/integration/customers'&&method==='GET'){
+ if(route==='/api/integration/customers'&&method==='GET'){
   if(!(await verifyAccountingBridgePayload(req,'customers')))fail(401,'طلب الربط غير مصادق عليه.');
   const rows=await allRows(db,'sb_accounts?select=code,name&role=eq.customer&active=eq.true&order=code');
-  return json({readOnly:true,customers:rows.map(row=>({code:cleanCode(row.code),name:String(row.name||row.code)}))});
+  return json({readOnly:true,customers:rows.map(row=>({code:trackingCustomerCode(row),name:String(row.name||row.code),accountingCode:cleanCode(row.code)}))});
  }
  if(route==='/api/bootstrap'&&method==='GET')return json({needsSetup:false,requiresSetupKey:true});
  if(route==='/api/setup')fail(403,'إنشاء الحسابات متاح من الإدارة فقط.');
