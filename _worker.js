@@ -34,7 +34,7 @@ export function database(env){let actor='',batchId='';const db=async(path,method
  };db.setActor=code=>{actor=code;batchId=crypto.randomUUID()};return db;}
 
 async function allRows(db,path){const out=[];for(let offset=0;offset<100000;offset+=1000){const rows=await db(path+(path.includes('?')?'&':'?')+'limit=1000&offset='+offset);out.push(...rows);if(rows.length<1000)return out;}fail(503,'البيانات كبيرة جدًا لهذا العرض. تواصل مع الإدارة.');}
-async function resolveCustomerCode(db,customer){ const query='sb_accounts?select=code,name&role=eq.customer&or=(code.ilike.'+encodeURIComponent(customer)+',name.ilike.'+encodeURIComponent(customer)+')'; const [row]=await db(query); const alias=String(row?.name||'').trim().toUpperCase(); return /^LN-[A-Z0-9-]{1,32}$/.test(alias)?alias:customer;}const currencies=['USD','LYD','CNY','AED','SAR'];
+async function resolveCustomerCode(db,customer){ const rows=await allRows(db,'sb_accounts?select=code,name&role=eq.customer'); const row=rows.find(item=>String(item.code||'').trim().toUpperCase()===customer||String(item.name||'').trim().toUpperCase()===customer); const alias=String(row?.name||'').trim().toUpperCase(); return /^LN-[A-Z0-9-]{1,32}$/.test(alias)?alias:customer;}const currencies=['USD','LYD','CNY','AED','SAR'];
 const validUuid=v=>typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 
 // Read-only bridge for the accounting site. The private signing key stays in
