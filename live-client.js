@@ -113,7 +113,15 @@ function openEditShipment(s){
 function renderUsers(){
  $('users').innerHTML='';$('users-title').hidden=state.user.role!=='admin';
  if(state.user.role!=='admin')return;
- state.users.filter(c=>c.role!=='admin').forEach(c=>{const card=document.createElement('article');card.innerHTML=`<div class="row"><span>${esc(c.name)} · <b dir="ltr">${esc(c.code)}</b><br><small>${({staff:'موظف مسؤول',warehouse:'موظف مخزن',accountant:'محاسب',customer:'زبون'}[c.role]||c.role)} · ${c.active?'نشط':'موقوف'}</small><br><span dir="ltr">${esc(c.phone||'')}</span></span><div><button type="button" class="toggle">${c.active?'إيقاف':'تفعيل'}</button> <button type="button" class="reset">تغيير كلمة المرور</button></div></div>`;card.querySelector('.toggle').onclick=async()=>{try{await api('/users/'+encodeURIComponent(c.code),'PATCH',{active:!c.active});await refresh();notice('تم تحديث الحساب.')}catch(error){notice(error.message)}};card.querySelector('.reset').onclick=()=>resetPassword(c);$('users').appendChild(card)});
+ state.users.filter(c=>c.role!=='admin').forEach(c=>{const card=document.createElement('article');card.innerHTML='<div class="row"><span>'+esc(c.name)+' · <b dir="ltr">'+esc(c.code)+'</b><br><small>'+(({staff:'موظف مسؤول',warehouse:'موظف مخزن',accountant:'محاسب',customer:'زبون'}[c.role]||c.role))+' · '+(c.active?'نشط':'موقوف')+'</small><br><span dir="ltr">'+esc(c.phone||'')+'</span></span><div><button type="button" class="toggle">'+(c.active?'إيقاف':'تفعيل')+'</button> '+(c.role==='customer'?'<button type="button" class="edit-customer">تعديل البيانات</button> ':'')+'<button type="button" class="reset">تغيير كلمة المرور</button></div></div>';card.querySelector('.toggle').onclick=async()=>{try{await api('/users/'+encodeURIComponent(c.code),'PATCH',{active:!c.active});await refresh();notice('تم تحديث الحساب.')}catch(error){notice(error.message)}};card.querySelector('.reset').onclick=()=>resetPassword(c);card.querySelector('.edit-customer')?.addEventListener('click',()=>editCustomer(c));$('users').appendChild(card)});
+}
+
+function editCustomer(c){
+ const d=$('detail');
+ d.innerHTML='<form class="live-form" id="customer-form"><div class="row"><h2>تعديل بيانات العميل</h2><button type="button" id="cancel-customer">إغلاق</button></div><label>كود العميل (ثابت)<input value="'+esc(c.code)+'" dir="ltr" readonly></label><p class="form-note">الكود ثابت حتى لا تنقطع الشحنات والرحلات المرتبطة به.</p><label>اسم العميل<input name="name" required maxlength="100" value="'+esc(c.name)+'"></label><label>رقم الهاتف<input name="phone" type="tel" dir="ltr" required maxlength="25" value="'+esc(c.phone||'')+'"></label><p role="status"></p><button class="primary">حفظ التعديل</button></form>';
+ d.querySelector('#cancel-customer').onclick=()=>d.close();
+ d.querySelector('#customer-form').onsubmit=async e=>{e.preventDefault();const form=e.target,button=form.querySelector('.primary'),feedback=form.querySelector('[role=status]');button.disabled=true;feedback.textContent='';try{const data=Object.fromEntries(new FormData(form));await api('/users/'+encodeURIComponent(c.code),'PATCH',{name:data.name,phone:data.phone});d.close();await refresh();notice('تم تعديل بيانات العميل مع بقاء الكود والرحلات والشحنات مرتبطة.')}catch(error){feedback.textContent=error.message;button.disabled=false}};
+ d.showModal();
 }
 
 function resetPassword(c){
