@@ -216,7 +216,7 @@ export async function handle(req,env){
   if(route.startsWith('/api/users/')&&method==='PATCH'){
    admin();const code=cleanCode(decodeURIComponent(route.slice(11))),b=await body(req),[target]=await db('sb_accounts?code=eq.'+encodeURIComponent(code));
    if(!target)fail(404,'الحساب غير موجود.');if(target.role==='admin')fail(400,'لا يمكن تعديل حساب الإدارة من هذه الشاشة.');
-   let changes;if(b.password!==undefined)changes=passwordHash(b.password);else if(typeof b.active==='boolean')changes={active:b.active};else if(['staff','warehouse','accountant'].includes(b.role)&&target.role!=='customer')changes={role:b.role};else fail(400,'التعديل غير صالح.');
+   let changes;if(b.password!==undefined)changes=passwordHash(b.password);else if(typeof b.active==='boolean')changes={active:b.active};else if(typeof b.name==='string'||b.phone!==undefined){const name=b.name===undefined?target.name:text(b.name,100),phone=b.phone===undefined?String(target.phone||'').trim():String(b.phone||'').trim();if(target.role==='customer'&&!phone)fail(400,'أدخل رقم هاتف صحيح للزبون.');if(phone&&!/^\+?[0-9 ()-]{6,25}$/.test(phone))fail(400,'أدخل رقم هاتف صحيح.');changes={name,phone}}else if(['staff','warehouse','accountant'].includes(b.role)&&target.role!=='customer')changes={role:b.role};else fail(400,'التعديل غير صالح.');
    await db('sb_accounts?code=eq.'+encodeURIComponent(code),'PATCH',changes);await db('sb_sessions?account_code=eq.'+encodeURIComponent(code),'DELETE');return json({ok:true});
   }
   if(route==='/api/trips'&&method==='POST'){
