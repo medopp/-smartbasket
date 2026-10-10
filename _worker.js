@@ -208,7 +208,10 @@ export async function handle(req,env){
    return json({user:publicUser(u),users,trips:trips.map(t=>({...publicTrip(t),shipmentCount:counts.get([t.trip_code,t.country,t.mode].join('|'))||0})),shipments:rows.map(s=>({id:s.id,customer:s.customer_code,country:s.country,mode:s.mode,weight:s.weight+' '+s.unit,weightValue:Number(s.weight),unit:s.unit,trip:s.trip,date:s.ship_date||'لم يُحدد',step:Number(s.step),status:states[Number(s.step)]||states[0],hasPhoto:!!s.photo_key,category:s.category||'عام',updatedAt:s.updated_at}))});
   }
   if(route==='/api/users'&&method==='POST'){
-   admin();const b=await body(req),code=cleanCode(b.code),name=text(b.name),phone=String(b.phone||'').trim();
+   const b=await body(req);
+   if(u.role!=='admin'&&!(u.role==='warehouse'&&b.role==='customer'))fail(403,'موظف المخزن يمكنه إضافة زبائن فقط؛ إدارة حسابات الموظفين للمدير.');
+   const code=cleanCode(b.code),name=text(b.name),phone=String(b.phone||'').trim();
+   if(code==='LN-')fail(400,'أدخل كود زبون كاملًا؛ LN- مخصص للشحنات مجهولة المالك.');
    if(!['customer','staff','warehouse','accountant'].includes(b.role))fail(400,'نوع الحساب غير صالح.');
    if((b.role==='customer'&&!phone)||(phone&&!/^\+?[0-9 ()-]{6,25}$/.test(phone)))fail(400,'أدخل رقم هاتف صحيح.');
    await db('sb_accounts','POST',{code,name,role:b.role,phone,...passwordHash(b.password)});return json({ok:true},201);

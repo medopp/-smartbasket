@@ -35,7 +35,7 @@ export function sync(){
 export function opened(name){if(!get())return;services.opened(name);if(name==='alerts')renderAlerts();if(name==='billing')renderBilling();if(name==='audit')renderAudit();}
 export function enhanceForms(){
  if(!get())return;const roles={staff:'موظف مسؤول',warehouse:'موظف مخزن',accountant:'محاسب'};
- const role=$('user-form')?.elements.role;if(role&&!role.querySelector('[value=warehouse]')){role.insertAdjacentHTML('beforeend',option('warehouse','موظف مخزن','')+option('accountant','محاسب',''))}
+ const role=$('user-form')?.elements.role;if(get().user.role==='admin'&&role?.tagName==='SELECT'&&!role.querySelector('[value=warehouse]')){role.insertAdjacentHTML('beforeend',option('warehouse','موظف مخزن','')+option('accountant','محاسب',''))}
  ['shipment-form','edit-shipment-form'].forEach(id=>{const f=$(id);if(!f||f.elements.category)return;const old=id==='edit-shipment-form'?get().shipments.find(s=>s.id===f.elements.id.value):null;const label=document.createElement('label');label.textContent='تصنيف الشحنة (للتسعير)';const input=document.createElement('input');input.name='category';input.maxLength=80;input.required=true;input.value=old?.category||'عام';input.setAttribute('list','category-options');label.append(input);f.querySelector('.primary').before(label)});
  if(!$('category-options')){const d=document.createElement('datalist');d.id='category-options';document.body.append(d)}$('category-options').innerHTML=[...new Set(['عام',...get().shipments.map(s=>s.category||'عام')])].map(c=>option(c,c,'')).join('');
  if(get().user.role==='accountant'){$('forms').innerHTML='';$('users').innerHTML='';$('users-title').hidden=true}
