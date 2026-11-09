@@ -1,4 +1,4 @@
-import {randomBytes,scryptSync,timingSafeEqual,createHash} from 'node:crypto'; const accountingBridgePublicKey='MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzOatrZJlMoG1N8R8rjMqIg2VsqDUvdKDEybZlmK4ET5HxjTortMdbOH35aBtFJ1IstS8THXugad/BtCJjH1c3KyK6nowC4SkG3wlO+C4ouAjoHTZO/oMaMKkt7JddQM6kxRMoNkx/zHqTeN0u5aTIIakMM5Yhs4H1LvIllVLsyhUYeNSWtiX74voCWwUiKc+2P7prHo0FlbO3D0/XiCDkl248NbwMS6OXg3UWoFc/h5sM52wcd/pP+oYn6HDgmSjLaAB25eXuUGDoKn6vB1yYzF/ama6DD3CPNSZ74k14rOLOiyH9o08uMVGFlwv39oKFKGsZmaBii9f9cA++DcNeQIDAQAB';
+import {randomBytes,scryptSync,timingSafeEqual,createHash} from 'node:crypto'; const accountingBridgePublicKeyNext='MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvktsleaF8w2f4TgZzdtzEa9Mvk9aHfGfUPGQZmn3KMuNpmeBZQqb1EVZ9UJznK7qao47FJheBNtJdUWXH6KnBYmT1YUUZ1sPTmCvcrc9eoHST6twe1s3lhnf3NVBkY3JMk+up+wJkc+oBIoHEpAkLT+L26Oa672emsWF3Xi/H8CUfuOVnJvEbaVr9ef4f6XmPeR3ZnGBoyh/1z6XCm40WqpLEhR5gI2eHO8cU4cEWTY97iFwcseaXrfWscG8EBNE6rWxHgJkIbrDsrUANKhnVkmYNUB74XnxFLTgE2tWoszsnrFXootlN5WDBcsuXY4rCBWvVlvaHoW3Iawt7Y7ZLwIDAQAB'; const accountingBridgePublicKey='MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzOatrZJlMoG1N8R8rjMqIg2VsqDUvdKDEybZlmK4ET5HxjTortMdbOH35aBtFJ1IstS8THXugad/BtCJjH1c3KyK6nowC4SkG3wlO+C4ouAjoHTZO/oMaMKkt7JddQM6kxRMoNkx/zHqTeN0u5aTIIakMM5Yhs4H1LvIllVLsyhUYeNSWtiX74voCWwUiKc+2P7prHo0FlbO3D0/XiCDkl248NbwMS6OXg3UWoFc/h5sM52wcd/pP+oYn6HDgmSjLaAB25eXuUGDoKn6vB1yYzF/ama6DD3CPNSZ74k14rOLOiyH9o08uMVGFlwv39oKFKGsZmaBii9f9cA++DcNeQIDAQAB';
 
 
 import {Buffer} from 'node:buffer';
@@ -62,20 +62,24 @@ async function verifyAccountingBridge(req,customer,trip,country,mode=''){
  const stamp=req.headers.get('X-SmartCart-Timestamp')||'',signature=req.headers.get('X-SmartCart-Signature')||'';
  const seconds=Number(stamp);
  if(!/^\d{10,13}$/.test(stamp)||!Number.isFinite(seconds)||Math.abs(Date.now()/1000-(stamp.length===13?seconds/1000:seconds))>300||!signature)return false;
- try{
-  const key=await globalThis.crypto.subtle.importKey('spki',base64Bytes(accountingBridgePublicKey),{name:'RSA-PSS',hash:'SHA-256'},false,['verify']);
-  const payload=mode?`${stamp}.${customer}.${trip}.${country}.${mode}`:`${stamp}.${customer}.${trip}.${country}`;
-  return await globalThis.crypto.subtle.verify({name:'RSA-PSS',saltLength:32},key,base64Bytes(signature),new TextEncoder().encode(payload));
- }catch{return false}
+ const payload=mode?`${stamp}.${customer}.${trip}.${country}.${mode}`:`${stamp}.${customer}.${trip}.${country}`;
+ return verifyWithAccountingKeys(signature,payload);
+}
+// Both keys are accepted while the accounting system moves from ChatGPT Sites to Cloudflare.
+async function verifyWithAccountingKeys(signature,payload){
+ for(const pem of [accountingBridgePublicKey,accountingBridgePublicKeyNext]){
+  try{
+   const key=await globalThis.crypto.subtle.importKey('spki',base64Bytes(pem),{name:'RSA-PSS',hash:'SHA-256'},false,['verify']);
+   if(await globalThis.crypto.subtle.verify({name:'RSA-PSS',saltLength:32},key,base64Bytes(signature),new TextEncoder().encode(payload)))return true;
+  }catch{}
+ }
+ return false;
 }
 async function verifyAccountingBridgePayload(req,payload){
  const stamp=req.headers.get('X-SmartCart-Timestamp')||'',signature=req.headers.get('X-SmartCart-Signature')||'';
  const seconds=Number(stamp);
  if(!/^\d{10,13}$/.test(stamp)||!Number.isFinite(seconds)||Math.abs(Date.now()/1000-(stamp.length===13?seconds/1000:seconds))>300||!signature)return false;
- try{
-  const key=await globalThis.crypto.subtle.importKey('spki',base64Bytes(accountingBridgePublicKey),{name:'RSA-PSS',hash:'SHA-256'},false,['verify']);
-  return await globalThis.crypto.subtle.verify({name:'RSA-PSS',saltLength:32},key,base64Bytes(signature),new TextEncoder().encode(`${stamp}.${payload}`));
- }catch{return false}
+ return verifyWithAccountingKeys(signature,`${stamp}.${payload}`);
 }
 
 async function getTrip(db,trip,country,mode){const [row]=await db(filter('sb_trips',{trip_code:trip,country,mode}));return row}
