@@ -51,6 +51,23 @@ const trackingCustomerCode=row=>{
  const name=String(row?.name||'').trim().toUpperCase();
  return trackingCodePattern.test(name)?name:cleanCode(row?.code||'');
 };
+// Maps every shipment customer_code alias to the active customer it belongs to,
+// matching the per-customer alias rules of /api/integration/shipments.
+async function integrationCustomerOwners(db){
+ const all=await allRows(db,'sb_accounts?select=code,name,active&role=eq.customer');
+ const owners=new Map();
+ for(const row of all.filter(r=>r.active!==false)){
+  const owner={code:trackingCustomerCode(row),name:String(row.name||row.code)};
+  for(const other of all){
+   const code=String(other.code||'').trim().toUpperCase(),name=String(other.name||'').trim().toUpperCase();
+   if(code!==owner.code&&name!==owner.code)continue;
+   if(code&&!owners.has(code))owners.set(code,owner);
+   if(name&&trackingCodePattern.test(name)&&!owners.has(name))owners.set(name,owner);
+  }
+  if(!owners.has(owner.code))owners.set(owner.code,owner);
+ }
+ return owners;
+}
 const currencies=['USD','LYD','CNY','AED','SAR'];
 const validUuid=v=>typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 
@@ -171,6 +188,47 @@ export async function handle(req,env){
    if(!unique.has(key))unique.set(key,{code,country,mode,date:canonical?.arrival_date||'لم يُحدد',step:Number(canonical?.step||0)});
   }
   return json({customer,readOnly:true,trips:[...unique.values()]});
+ }
+ // Bulk reads for the accounting system: one request per screen instead of one per customer,
+ // which keeps it under the Workers free-plan subrequest limit.
+ if(route==='/api/integration/trip-shipments'&&method==='GET'){
+  const trip=cleanCode(url.searchParams.get('trip'));
+  if(!trip||!(await verifyAccountingBridgePayload(req,'trip-shipments.'+trip)))fail(401,'طلب الربط غير مصادق عليه.');
+  const [owners,rows]=await Promise.all([integrationCustomerOwners(db),allRows(db,'sb_shipments?select=id,customer_code,country,mode,weight,unit,trip,category,ship_date,step,updated_at&trip=ilike.'+encodeURIComponent(trip)+'&order=id')]);
+  const groups=new Map();
+  for(const s of rows){
+   const owner=owners.get(String(s.customer_code||'').trim().toUpperCase());
+   if(!owner||!countries.includes(s.country))continue;
+   const key=owner.code+'|'+s.country;
+   if(!groups.has(key))groups.set(key,{code:owner.code,name:owner.name,country:s.country,shipments:[]});
+   groups.get(key).shipments.push({tracking:s.id,customer:s.customer_code,country:s.country,mode:s.mode,weight:Number(s.weight),unit:s.unit,category:s.category||'عام',shipDate:s.ship_date||null,step:Number(s.step||0),status:states[Number(s.step||0)]||states[0],updatedAt:s.updated_at});
+  }
+  return json({trip,readOnly:true,customers:[...groups.values()]});
+ }
+ if(route==='/api/integration/trips-index'&&method==='GET'){
+  if(!(await verifyAccountingBridgePayload(req,'trips-index')))fail(401,'طلب الربط غير مصادق عليه.');
+  const [owners,rows,tripRows]=await Promise.all([integrationCustomerOwners(db),allRows(db,'sb_shipments?select=customer_code,trip,country,mode&order=trip,country,mode'),allRows(db,'sb_trips?select=trip_code,country,mode,arrival_date,step&order=trip_code,country,mode')]);
+  const normalizeTrip=value=>{
+   const raw=String(value||'').trim().toUpperCase();
+   const tokens=raw.match(/[A-Z0-9]+(?:-[A-Z0-9]+)*/g)||[];
+   return (tokens.find(token=>/\d/.test(token))||tokens.at(-1)||raw).trim();
+  };
+  const tripByCode=new Map(tripRows.map(row=>[normalizeTrip(row.trip_code),row]));
+  const unique=new Map();
+  for(const row of rows){
+   const owner=owners.get(String(row.customer_code||'').trim().toUpperCase());
+   const rawTrip=String(row.trip||'').trim();
+   if(!owner||!rawTrip||rawTrip==='لم تُحدد')continue;
+   const code=normalizeTrip(rawTrip),canonical=tripByCode.get(code);
+   if(!code)continue;
+   const country=countries.includes(row.country)?row.country:(countries.includes(canonical?.country)?canonical.country:'');
+   const mode=modes.includes(row.mode)?row.mode:(modes.includes(canonical?.mode)?canonical.mode:'');
+   const key=[code,country,mode].join('|');
+   if(!unique.has(key))unique.set(key,{code,country,mode,date:canonical?.arrival_date||'لم يُحدد',step:Number(canonical?.step||0),customerCodes:[]});
+   const trip=unique.get(key);
+   if(!trip.customerCodes.includes(owner.code))trip.customerCodes.push(owner.code);
+  }
+  return json({readOnly:true,trips:[...unique.values()]});
  }
  if(route==='/api/integration/customers'&&method==='GET'){
   if(!(await verifyAccountingBridgePayload(req,'customers')))fail(401,'طلب الربط غير مصادق عليه.');
