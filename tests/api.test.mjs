@@ -25,4 +25,19 @@ test('validated import uses single transaction and authenticated actor',async()=
 test('consent changes only the authenticated customer',async()=>{assert.equal((await run(req('/api/notifications/consent','POST',{enabled:true,code:'OTHER'}),'customer')).status,200);assert.ok(calls.find(c=>c.method==='PATCH').path.endsWith('code=eq.TEST-USER'))});
 test('SQL, setup documents, and dispatcher code are not public assets',async()=>{for(const p of ['/db/operations.sql','/whatsapp/worker.mjs','/tests/database-rollback.sql'])assert.equal((await run(req(p))).status,404)});
 test('app ships self-hosted parser and scanner assets',async()=>{for(const p of ['/operations.mjs','/vendor/xlsx.full.min.js','/vendor/zxing-browser.min.js'])assert.equal((await run(req(p))).status,200)});
+test('only the admin renames a trip; notifications move before shipments and the old trip goes last',async()=>{
+ const b={trip:'110',country:'الصين',mode:'جوي',newTrip:'111'};
+ for(const r of ['warehouse','staff','customer'])assert.equal((await run(req('/api/trips/code','PATCH',b),r)).status,403);
+ const base=globalThis.fetch;
+ globalThis.fetch=async(url,opts={})=>{const u=new URL(url);if(u.pathname.endsWith('/sb_trips')&&(opts.method||'GET')==='GET'){calls.push({path:u.pathname+u.search,method:'GET'});return Response.json(u.search.includes('trip_code=eq.110')?[{id:7,trip_code:'110',country:'الصين',mode:'جوي',arrival_date:'2026-11-01',step:2}]:[])}return base(url,opts)};
+ try{
+  assert.equal((await run(req('/api/trips/code','PATCH',{...b,newTrip:'110'}))).status,400);
+  const r=await run(req('/api/trips/code','PATCH',b));assert.equal(r.status,200);assert.equal((await r.json()).movedCount,1);
+  const writes=calls.filter(c=>c.method!=='GET').map(c=>c.method+' '+c.path.split('?')[0].split('/').pop());
+  assert.deepEqual(writes,['POST sb_trips','PATCH sb_notifications','PATCH sb_reconciliations','PATCH sb_shipments','DELETE sb_trips']);
+  const created=calls.find(c=>c.method==='POST').body;assert.equal(created.trip_code,'111');assert.equal(created.step,2);assert.equal(created.id,undefined);
+  assert.ok(calls.find(c=>c.method==='PATCH'&&c.path.includes('sb_shipments')).path.includes('trip=eq.110'));
+  assert.ok(calls.find(c=>c.method==='DELETE').path.includes('trip_code=eq.110'));
+ }finally{globalThis.fetch=base}
+});
 test.after(()=>{globalThis.fetch=originalFetch});

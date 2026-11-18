@@ -82,6 +82,7 @@ function renderForms(){
  $('trip-form').onsubmit=submitTrip;
  $('shipment-form').onsubmit=submitShipment;
  renderTripControls();
+ if(state.user.role==='admin')renderTripRename();
  if(state.user.role==='warehouse')$('forms').prepend($('user-form'));
  renderUsers();
  let addCustomer=$('warehouse-add-customer');
@@ -100,6 +101,17 @@ function renderTripControls(){
  const update=()=>{const t=trips[Number(group.value)];count.textContent=`سيتم تحديث ${t.shipmentCount} شحنة.`;step.value=String(t.step||0);date.value=/^\d{4}-\d{2}-\d{2}$/.test(t.date||'')?t.date:''};
  group.onchange=update;update();
  box.onsubmit=async e=>{e.preventDefault();const t=trips[Number(group.value)],button=box.querySelector('button'),feedback=box.querySelector('[role=status]');button.disabled=true;try{const data={trip:t.code,country:t.country,mode:t.mode,step:Number(step.value)};if(date.value)data.date=date.value;const result=await api('/trips/status','PATCH',data);await refresh();notice(`تم تحديث ${result.updatedCount} شحنة في الرحلة ${t.code}.`)}catch(error){feedback.textContent=error.message}finally{button.disabled=false}};
+}
+
+function renderTripRename(){
+ const trips=state.trips||[];
+ if(!trips.length)return;
+ const box=document.createElement('form');box.id='trip-rename-form';
+ box.innerHTML=`<h3>تعديل رقم الرحلة</h3><p class="form-note">يتغير رقم الرحلة، وكل شحناتها وتنبيهاتها وتقارير الجرد تمشي معاها للرقم الجديد.</p><label>الرحلة<select name="group">${trips.map((t,i)=>`<option value="${i}">${esc(t.code)} · ${esc(t.country)} · ${esc(t.mode)} · ${t.shipmentCount} شحنة</option>`).join('')}</select></label><label>الرقم الجديد<input name="newTrip" required dir="ltr" autocomplete="off" pattern="[A-Za-z0-9-]{2,64}"></label><button class="primary">حفظ الرقم الجديد</button><p role="status"></p>`;
+ $('forms').prepend(box);
+ box.onsubmit=async e=>{e.preventDefault();const t=trips[Number(box.elements.group.value)],newTrip=box.elements.newTrip.value.trim().toUpperCase(),button=box.querySelector('button'),feedback=box.querySelector('[role=status]');feedback.textContent='';
+  if(!confirm(`تغيير رقم الرحلة ${t.code} (${t.country} · ${t.mode}) إلى ${newTrip}؟ سيتم نقل ${t.shipmentCount} شحنة.`))return;
+  button.disabled=true;try{const result=await api('/trips/code','PATCH',{trip:t.code,country:t.country,mode:t.mode,newTrip});await refresh();notice(`تم تغيير الرحلة ${t.code} إلى ${newTrip} ونقل ${result.movedCount} شحنة.`)}catch(error){feedback.textContent=error.message}finally{button.disabled=false}};
 }
 
 async function submitTrip(e){

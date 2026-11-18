@@ -310,6 +310,30 @@ export async function handle(req,env){
    const updatedCount=await db('rpc/sb_trip_update','POST',{p_trip:trip,p_country:country,p_mode:mode,p_step:b.step,p_date:date});
    return json({ok:true,updatedCount});
   }
+  if(route==='/api/trips/code'&&method==='PATCH'){
+   admin();const b=await body(req),trip=cleanCode(b.trip),newTrip=cleanCode(b.newTrip),country=b.country,mode=b.mode;
+   if(!countries.includes(country)||!modes.includes(mode))fail(400,'اختر رحلة ودولة ونوع شحن صالحين.');
+   if(trip===newTrip)fail(400,'الرقم الجديد نفس رقم الرحلة الحالي.');
+   const old=await getTrip(db,trip,country,mode);if(!old)fail(404,'الرحلة غير موجودة.');
+   if(await getTrip(db,newTrip,country,mode))fail(409,'فيه رحلة بنفس الرقم والدولة ونوع الشحن.');
+   // Create the new trip, move every record to it, then drop the old one; undo on failure.
+   const {id:_id,...copy}=old;await db('sb_trips','POST',{...copy,trip_code:newTrip});
+   const where=code=>'trip=eq.'+encodeURIComponent(code)+'&country=eq.'+encodeURIComponent(country)+'&mode=eq.'+encodeURIComponent(mode);
+   const move=async(from,to)=>{
+    // Notifications move first so the shipment trigger updates them instead of sending new WhatsApp messages.
+    await db('sb_notifications?'+where(from),'PATCH',{trip:to});
+    await db('sb_reconciliations?'+where(from),'PATCH',{trip:to});
+    return await db('sb_shipments?'+where(from),'PATCH',{trip:to});
+   };
+   try{
+    const moved=await move(trip,newTrip);
+    await db(filter('sb_trips',{trip_code:trip,country,mode}),'DELETE');
+    return json({ok:true,movedCount:(moved||[]).length});
+   }catch(error){
+    await move(newTrip,trip).catch(()=>{});await db(filter('sb_trips',{trip_code:newTrip,country,mode}),'DELETE').catch(()=>{});
+    throw error;
+   }
+  }
   if(route==='/api/shipments/import'&&method==='POST'){
    manager();const b=await body(req);if(!Array.isArray(b.rows)||b.rows.length<1||b.rows.length>1000)fail(400,'اختر من 1 إلى 1000 شحنة.');
    const rows=b.rows.map(importRow);
